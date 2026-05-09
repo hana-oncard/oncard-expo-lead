@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推し活EXPO｜リード管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --text2: #8888a0;
+    --text3: #55556a;
+    --accent: #c084fc;
+    --accent2: #a855f7;
+    --high: #4ade80;
+    --mid: #facc15;
+    --low: #94a3b8;
+    --red: #f87171;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Layout */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+  }
+  .sidebar-logo {
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .sidebar-logo .logo-text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .sidebar-logo .logo-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.15s;
+    font-size: 13px;
+    color: var(--text2);
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--surface2); color: var(--text); border-left-color: var(--accent); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Header */
+  .header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-title { font-size: 15px; font-weight: 500; }
+  .header-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(192,132,252,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(192,132,252,0.25);
+  }
+
+  /* Content */
+  .content { padding: 32px; flex: 1; }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Setup view */
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .setup-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent2);
+  }
+  .field input::placeholder, .field textarea::placeholder { color: var(--text3); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field .hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  /* Score selector */
+  .score-selector { display: flex; gap: 8px; }
+  .score-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    text-align: center;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .score-btn:hover { border-color: var(--border2); }
+  .score-btn.selected.high { background: rgba(74,222,128,0.12); border-color: var(--high); color: var(--high); }
+  .score-btn.selected.mid { background: rgba(250,204,21,0.12); border-color: var(--mid); color: var(--mid); }
+  .score-btn.selected.low { background: rgba(148,163,184,0.12); border-color: var(--low); color: var(--low); }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--accent2);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #9333ea; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-secondary:hover { color: var(--text); }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+  /* Lead form */
+  .lead-form-wrap {
+    max-width: 680px;
+  }
+  .lead-form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .lead-form-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 20px;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* AI result panel */
+  .ai-result {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: none;
+  }
+  .ai-result.show { display: block; }
+  .ai-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .ai-result-title { font-size: 13px; font-weight: 500; color: var(--text2); }
+  .score-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+  .score-badge.high { background: rgba(74,222,128,0.1); border-color: var(--high); color: var(--high); }
+  .score-badge.mid { background: rgba(250,204,21,0.1); border-color: var(--mid); color: var(--mid); }
+  .score-badge.low { background: rgba(148,163,184,0.1); border-color: var(--low); color: var(--low); }
+
+  .email-preview {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    margin-top: 12px;
+    color: var(--text);
+  }
+  .email-subject {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .email-subject span { color: var(--text); font-weight: 500; }
+  .ai-reason {
+    font-size: 12px;
+    color: var(--text2);
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+  .action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  /* Leads list */
+  .leads-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .leads-stats { display: flex; gap: 16px; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    text-align: center;
+  }
+  .stat-num { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; }
+  .stat-num.high { color: var(--high); }
+  .stat-num.mid { color: var(--mid); }
+  .stat-num.low { color: var(--low); }
+  .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  .leads-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .leads-table { width: 100%; border-collapse: collapse; }
+  .leads-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .leads-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    vertical-align: top;
+  }
+  .leads-table tr:last-child td { border-bottom: none; }
+  .leads-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .lead-name { font-weight: 500; color: var(--text); }
+  .lead-company { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .lead-memo { font-size: 12px; color: var(--text2); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lead-email-sent { font-size: 11px; color: var(--text3); }
+  .sent-check { color: var(--high); font-size: 12px; }
+  .pending { color: var(--text3); font-size: 12px; }
+  .lead-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: rgba(74,222,128,0.4); color: var(--high); }
+  .toast.error { border-color: rgba(248,113,113,0.4); color: var(--red); }
+
+  /* Status dot */
+  .status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status-dot.ok { background: var(--high); }
+  .status-dot.ng { background: var(--red); }
+  .status-dot.pending { background: var(--text3); }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  .empty-state {
+    padding: 60px;
+    text-align: center;
+    color: var(--text3);
+    font-size: 13px;
+  }
+
+  /* Notion badge */
+  .notion-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text">推し活EXPO</div>
+      <div class="logo-sub">Lead Management System</div>
+    </div>
+    <div class="nav-item active" onclick="switchView('input')" id="nav-input">
+      <span class="nav-icon">✦</span> リード入力
+    </div>
+    <div class="nav-item" onclick="switchView('leads')" id="nav-leads">
+      <span class="nav-icon">◈</span> リード一覧
+    </div>
+    <div class="nav-item" onclick="switchView('setup')" id="nav-setup">
+      <span class="nav-icon">◎</span> 設定
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="header">
+      <div class="header-title" id="header-title">リード入力</div>
+      <div class="header-badge" id="header-badge">展示会モード</div>
+    </div>
+
+    <div class="content">
+
+      <!-- 設定ビュー -->
+      <div class="view" id="view-setup">
+        <div class="setup-grid">
+          <div class="setup-card">
+            <h3>🔑 API設定</h3>
+            <div class="field">
+              <label>Claude API Key</label>
+              <input type="password" id="cfg-claude" placeholder="sk-ant-..." />
+              <div class="hint">AIスコアリング・メール文面生成に使用</div>
+            </div>
+            <div class="field">
+              <label>会社名 / ブランド名</label>
+              <input type="text" id="cfg-company" placeholder="株式会社○○" />
+            </div>
+            <div class="field">
+              <label>送信者名</label>
+              <input type="text" id="cfg-sender-name" placeholder="推し活EXPOブース担当" />
+            </div>
+          </div>
+
+          <div class="setup-card">
+            <h3>📧 Microsoft 365 (Outlook)</h3>
+            <div class="field">
+              <label>送信メールアドレス</label>
+              <input type="email" id="cfg-from-email" placeholder="you@company.com" />
+            </div>
+            <div class="field">
+              <label>Microsoft Graph APIのアクセストークン</label>
+              <input type="password" id="cfg-ms-token" placeholder="eyJ0eXAi..." />
+              <div class="hint">
+                取得手順：<a href="https://portal.azure.com" target="_blank" style="color:var(--accent)">Azure Portal</a> → Entra ID → アプリ登録 → Mail.Send権限
+              </div>
+            </div>
+          </div>
+
+          <div class="setup-card">
+            <h3>📓 Notion</h3>
+            <div class="field">
+              <label>Notion Integration Token</label>
+              <input type="password" id="cfg-notion-token" placeholder="secret_..." />
+              <div class="hint">
+                <a href="https://www.notion.so/my-integrations" target="_blank" style="color:var(--accent)">notion.so/my-integrations</a> で作成
+              </div>
+            </div>
+            <div class="field">
+              <label>Database ID</label>
+              <input type="text" id="cfg-notion-db" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+              <div class="hint">NotionのURLから取得。例：notion.so/xxx/<b>DATABASE_ID</b>?v=...</div>
+            </div>
+          </div>
+
+          <div class="setup-card">
+            <h3>✉️ メールテンプレート設定</h3>
+            <div class="field">
+              <label>高スコア向け：件名プレフィックス</label>
+              <input type="text" id="cfg-subj-high" placeholder="【ご面談のご提案】" value="【ご面談のご提案】" />
+            </div>
+            <div class="field">
+              <label>中スコア向け：件名プレフィックス</label>
+              <input type="text" id="cfg-subj-mid" placeholder="【資料のご送付】" value="【資料のご送付】" />
+            </div>
+            <div class="field">
+              <label>低スコア向け：件名プレフィックス</label>
+              <input type="text" id="cfg-subj-low" placeholder="【ご来場御礼】" value="【ご来場御礼】" />
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">💾 設定を保存</button>
+        <div style="margin-top: 12px; font-size: 12px; color: var(--text3)">設定はブラウザに保存されます</div>
+      </div>
+
+      <!-- リード入力ビュー -->
+      <div class="view active" id="view-input">
+        <div class="lead-form-wrap">
+          <div class="lead-form-card">
+            <h3>基本情報</h3>
+            <div class="form-row">
+              <div class="field">
+                <label>氏名 <span style="color:var(--red)">*</span></label>
+                <input type="text" id="inp-name" placeholder="田中 太郎" />
+              </div>
+              <div class="field">
+                <label>会社名 <span style="color:var(--red)">*</span></label>
+                <input type="text" id="inp-company" placeholder="株式会社○○" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>メールアドレス <span style="color:var(--red)">*</span></label>
+                <input type="email" id="inp-email" placeholder="tanaka@example.com" />
+              </div>
+              <div class="field">
+                <label>役職・部署</label>
+                <input type="text" id="inp-role" placeholder="マーケティング部 課長" />
+              </div>
+            </div>
+          </div>
+
+          <div class="lead-form-card">
+            <h3>担当者メモ</h3>
+            <div class="field">
+              <label>会話内容・気になった点</label>
+              <textarea id="inp-memo" placeholder="例：推し活グッズの企画段階。SNS連携に強い興味。来月に社内プレゼンがあるとのこと。競合のA社と比較検討中。予算感は100万円前後。" style="min-height:100px"></textarea>
+            </div>
+            <div class="field">
+              <label>興味度（任意で事前選択）</label>
+              <div class="score-selector">
+                <button class="score-btn high" onclick="selectScore('high', this)">🔥 高</button>
+                <button class="score-btn mid" onclick="selectScore('mid', this)">✦ 中</button>
+                <button class="score-btn low" onclick="selectScore('low', this)">◌ 低</button>
+              </div>
+              <div class="hint">AIが自動判定しますが、担当者の感触を入力しておくと精度が上がります</div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px">
+              <button class="btn btn-primary" id="btn-analyze" onclick="analyzeLead()">
+                ✦ AIでスコアリング＆メール生成
+              </button>
+              <button class="btn btn-secondary" onclick="clearForm()">クリア</button>
+            </div>
+          </div>
+
+          <!-- AI結果パネル -->
+          <div class="ai-result" id="ai-result">
+            <div class="ai-result-header">
+              <div class="ai-result-title">AI分析結果</div>
+              <div class="score-badge" id="result-score-badge">—</div>
+            </div>
+            <div class="ai-reason" id="result-reason"></div>
+            <div class="email-subject">
+              件名：<span id="result-subject"></span>
+            </div>
+            <div class="email-preview" id="result-body"></div>
+            <div class="action-row">
+              <button class="btn btn-primary" id="btn-send" onclick="sendAndSave()">
+                📧 Outlookで送信 ＋ Notionに保存
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="regenerate()">再生成</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- リード一覧ビュー -->
+      <div class="view" id="view-leads">
+        <div class="leads-header">
+          <div class="leads-stats">
+            <div class="stat">
+              <div class="stat-num" id="count-total">0</div>
+              <div class="stat-label">総リード数</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num high" id="count-high">0</div>
+              <div class="stat-label">高スコア</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num mid" id="count-mid">0</div>
+              <div class="stat-label">中スコア</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num low" id="count-low">0</div>
+              <div class="stat-label">低スコア</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center">
+            <div class="notion-badge">📓 Notion同期済み</div>
+            <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSVエクスポート</button>
+          </div>
+        </div>
+        <div class="leads-table-wrap">
+          <table class="leads-table">
+            <thead>
+              <tr>
+                <th>氏名 / 会社</th>
+                <th>スコア</th>
+                <th>担当者メモ</th>
+                <th>送信メール</th>
+                <th>登録日時</th>
+              </tr>
+            </thead>
+            <tbody id="leads-tbody">
+              <tr><td colspan="5"><div class="empty-state">まだリードがありません</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// --- State ---
+let leads = JSON.parse(localStorage.getItem('expo_leads') || '[]');
+let cfg = JSON.parse(localStorage.getItem('expo_cfg') || '{}');
+let currentScore = null;
+let currentResult = null;
+
+// --- Init ---
+function init() {
+  if (cfg['cfg-claude']) document.getElementById('cfg-claude').value = cfg['cfg-claude'];
+  if (cfg['cfg-company']) document.getElementById('cfg-company').value = cfg['cfg-company'];
+  if (cfg['cfg-sender-name']) document.getElementById('cfg-sender-name').value = cfg['cfg-sender-name'];
+  if (cfg['cfg-from-email']) document.getElementById('cfg-from-email').value = cfg['cfg-from-email'];
+  if (cfg['cfg-ms-token']) document.getElementById('cfg-ms-token').value = cfg['cfg-ms-token'];
+  if (cfg['cfg-notion-token']) document.getElementById('cfg-notion-token').value = cfg['cfg-notion-token'];
+  if (cfg['cfg-notion-db']) document.getElementById('cfg-notion-db').value = cfg['cfg-notion-db'];
+  if (cfg['cfg-subj-high']) document.getElementById('cfg-subj-high').value = cfg['cfg-subj-high'];
+  if (cfg['cfg-subj-mid']) document.getElementById('cfg-subj-mid').value = cfg['cfg-subj-mid'];
+  if (cfg['cfg-subj-low']) document.getElementById('cfg-subj-low').value = cfg['cfg-subj-low'];
+  updateLeadsList();
+}
+
+// --- Navigation ---
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('nav-' + v).classList.add('active');
+  const titles = { input: 'リード入力', leads: 'リード一覧', setup: '設定' };
+  document.getElementById('header-title').textContent = titles[v];
+  if (v === 'leads') updateLeadsList();
+}
+
+// --- Config ---
+function saveConfig() {
+  const keys = ['cfg-claude','cfg-company','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
+  keys.forEach(k => { cfg[k] = document.getElementById(k).value; });
+  localStorage.setItem('expo_cfg', JSON.stringify(cfg));
+  showToast('設定を保存しました', 'success');
+}
+
+function getVal(id) { return document.getElementById(id).value.trim(); }
+
+// --- Score selector ---
+function selectScore(score, btn) {
+  document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  currentScore = score;
+}
+
+// --- AI Analysis ---
+async function analyzeLead() {
+  const name = getVal('inp-name');
+  const company = getVal('inp-company');
+  const email = getVal('inp-email');
+  const memo = getVal('inp-memo');
+
+  if (!name || !company || !email) { showToast('氏名・会社名・メールアドレスは必須です', 'error'); return; }
+  if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); switchView('setup'); return; }
+  if (!memo) { showToast('担当者メモを入力してください', 'error'); return; }
+
+  const btn = document.getElementById('btn-analyze');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> AI分析中...';
+  document.getElementById('ai-result').classList.remove('show');
+
+  const companyName = cfg['cfg-company'] || '私ども';
+  const senderName = cfg['cfg-sender-name'] || '担当者';
+  const subjHigh = cfg['cfg-subj-high'] || '【ご面談のご提案】';
+  const subjMid = cfg['cfg-subj-mid'] || '【資料のご送付】';
+  const subjLow = cfg['cfg-subj-low'] || '【ご来場御礼】';
+  const hintScore = currentScore ? `（担当者の感触：${currentScore === 'high' ? '高' : currentScore === 'mid' ? '中' : '低'}）` : '';
+
+  const prompt = `あなたは展示会のリードスコアリングと営業フォローメール作成の専門家です。
+
+以下のリード情報と担当者メモを分析して、スコアリングとフォローメールを生成してください。
+
+## リード情報
+- 氏名：${name}
+- 会社：${company}
+- 役職：${getVal('inp-role') || '不明'}
+- 担当者メモ：${memo} ${hintScore}
+
+## 送信者情報
+- 送信者名：${senderName}（${companyName}）
+
+## スコア基準
+- HIGH（高）：具体的な検討段階、予算感あり、意思決定者に近い、短期での商談可能性が高い
+- MID（中）：興味はあるが検討初期、複数の意思決定者が必要、3〜6ヶ月以内の可能性
+- LOW（低）：情報収集段階、予算・意思決定権なし、長期的なナーチャリングが必要
+
+## 件名プレフィックス
+- HIGH：${subjHigh}
+- MID：${subjMid}
+- LOW：${subjLow}
+
+## 出力形式（必ずこのJSONのみを出力してください）
+{
+  "score": "HIGH" または "MID" または "LOW",
+  "reason": "スコアの理由を2〜3文で（日本語）",
+  "subject": "メール件名（プレフィックスを含む）",
+  "body": "フォローメール本文（${name}様へ宛てた丁寧な営業メール。署名は「${senderName}」で締める。300〜400文字程度）"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.map(i => i.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    currentResult = { ...result, name, company, email, role: getVal('inp-role'), memo };
+    showResult(result);
+  } catch(e) {
+    showToast('AI分析に失敗しました。APIキーと接続を確認してください。', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✦ AIでスコアリング＆メール生成';
+  }
+}
+
+function showResult(r) {
+  const scoreClass = r.score === 'HIGH' ? 'high' : r.score === 'MID' ? 'mid' : 'low';
+  const scoreLabel = r.score === 'HIGH' ? '🔥 高スコア' : r.score === 'MID' ? '✦ 中スコア' : '◌ 低スコア';
+  const badge = document.getElementById('result-score-badge');
+  badge.className = 'score-badge ' + scoreClass;
+  badge.textContent = scoreLabel;
+  document.getElementById('result-reason').textContent = '📊 ' + r.reason;
+  document.getElementById('result-subject').textContent = r.subject;
+  document.getElementById('result-body').textContent = r.body;
+  document.getElementById('ai-result').classList.add('show');
+  document.getElementById('ai-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function regenerate() { analyzeLead(); }
+
+// --- Send & Save ---
+async function sendAndSave() {
+  if (!currentResult) return;
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 送信中...';
+
+  let emailSent = false;
+  let notionSaved = false;
+
+  // 1) Send via Microsoft Graph API
+  if (cfg['cfg-ms-token'] && cfg['cfg-from-email']) {
+    try {
+      const mailBody = {
+        message: {
+          subject: currentResult.subject,
+          body: { contentType: 'Text', content: currentResult.body },
+          toRecipients: [{ emailAddress: { address: currentResult.email, name: currentResult.name } }],
+          from: { emailAddress: { address: cfg['cfg-from-email'], name: cfg['cfg-sender-name'] || '担当者' } }
+        },
+        saveToSentItems: true
+      };
+      const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + cfg['cfg-ms-token']
+        },
+        body: JSON.stringify(mailBody)
+      });
+      emailSent = res.status === 202;
+    } catch(e) { emailSent = false; }
+  }
+
+  // 2) Save to Notion via Make Webhook
+  try {
+    const makeRes = await fetch('https://hook.us2.make.com/axqqrllufqwt226ppy6jydg1ru5v2glx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentResult.name,
+        company: currentResult.company,
+        email: currentResult.email,
+        role: currentResult.role || '',
+        score: currentResult.score,
+        memo: currentResult.memo,
+        ai_comment: currentResult.reason,
+        email_subject: currentResult.subject,
+        email_sent: emailSent,
+        timestamp: new Date().toISOString()
+      })
+    });
+    notionSaved = makeRes.ok;
+  } catch(e) { console.error('Make webhook error:', e); notionSaved = false; }
+
+  // 3) Save locally always
+  const lead = {
+    ...currentResult,
+    emailSent,
+    notionSaved,
+    timestamp: new Date().toISOString()
+  };
+  leads.unshift(lead);
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+
+  btn.disabled = false;
+  btn.innerHTML = '📧 Outlookで送信 ＋ Notionに保存';
+
+  const msgs = [];
+  if (emailSent) msgs.push('メール送信✓');
+  else if (!cfg['cfg-ms-token']) msgs.push('メール（トークン未設定）');
+  else msgs.push('メール送信失敗');
+  if (notionSaved) msgs.push('Notion保存✓');
+  else if (!cfg['cfg-notion-token']) msgs.push('Notion（未設定）');
+  else msgs.push('Notion保存失敗');
+
+  const allOk = (emailSent || !cfg['cfg-ms-token']) && (notionSaved || !cfg['cfg-notion-token']);
+  showToast(msgs.join(' ／ '), allOk ? 'success' : 'error');
+
+  if (emailSent || notionSaved) setTimeout(() => clearForm(), 1500);
+}
+
+// --- Form ---
+function clearForm() {
+  ['inp-name','inp-company','inp-email','inp-role','inp-memo'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  currentScore = null;
+  currentResult = null;
+  document.getElementById('ai-result').classList.remove('show');
+}
+
+// --- Leads list ---
+function updateLeadsList() {
+  const tbody = document.getElementById('leads-tbody');
+  document.getElementById('count-total').textContent = leads.length;
+  document.getElementById('count-high').textContent = leads.filter(l => l.score === 'HIGH').length;
+  document.getElementById('count-mid').textContent = leads.filter(l => l.score === 'MID').length;
+  document.getElementById('count-low').textContent = leads.filter(l => l.score === 'LOW').length;
+
+  if (!leads.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">まだリードがありません</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = leads.map(l => {
+    const scoreClass = l.score === 'HIGH' ? 'high' : l.score === 'MID' ? 'mid' : 'low';
+    const scoreLabel = l.score === 'HIGH' ? '🔥 高' : l.score === 'MID' ? '✦ 中' : '◌ 低';
+    const dt = new Date(l.timestamp);
+    const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    return `<tr>
+      <td><div class="lead-name">${l.name}</div><div class="lead-company">${l.company}</div></td>
+      <td><span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span></td>
+      <td><div class="lead-memo" title="${l.memo}">${l.memo}</div></td>
+      <td>${l.emailSent ? '<span class="sent-check">✓ 送信済み</span>' : '<span class="pending">未送信</span>'}</td>
+      <td><div class="lead-time">${dtStr}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+// --- CSV Export ---
+function exportCSV() {
+  if (!leads.length) { showToast('エクスポートするデータがありません', 'error'); return; }
+  const headers = ['氏名','会社名','メール','役職','スコア','AIコメント','件名','メモ','メール送信','登録日時'];
+  const rows = leads.map(l => [
+    l.name, l.company, l.email, l.role||'', l.score, l.reason||'', l.subject||'', l.memo,
+    l.emailSent ? '済み' : '未', new Date(l.timestamp).toLocaleString('ja-JP')
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `expo_leads_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSVをエクスポートしました', 'success');
+}
+
+// --- Toast ---
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+init();
+</script>
+</body>
+</html>
