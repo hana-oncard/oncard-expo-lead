@@ -15,8 +15,8 @@
     --text: #e8e8f0;
     --text2: #8888a0;
     --text3: #55556a;
-    --accent: #2dd4bf;
-    --accent2: #0d9488;
+    --accent: #38bdf8;
+    --accent2: #0284c7;
     --high: #4ade80;
     --mid: #facc15;
     --low: #94a3b8;
@@ -414,7 +414,7 @@
     transition: all 0.15s;
   }
   .tag-btn:hover { border-color: var(--accent); color: var(--text); }
-  .tag-btn.selected { background: rgba(13,148,136,0.15); border-color: var(--accent); color: var(--accent); }
+  .tag-btn.selected { background: rgba(2,132,199,0.15); border-color: var(--accent); color: var(--accent); }
 
   .empty-state {
     padding: 60px;
@@ -585,8 +585,10 @@
                 <button class="tag-btn" onclick="toggleTag(this)">芸能・音楽</button>
                 <button class="tag-btn" onclick="toggleTag(this)">スポーツ</button>
                 <button class="tag-btn" onclick="toggleTag(this)">IPホルダー</button>
-                <button class="tag-btn" onclick="toggleTag(this)">エンターテイメント事業・その他</button>
+                <button class="tag-btn" onclick="toggleTag(this)">エンターテイメント事業</button>
+                <button class="tag-btn" onclick="toggleTag(this)">広告</button>
                 <button class="tag-btn" onclick="toggleTag(this)">インバウンド</button>
+                <button class="tag-btn" onclick="toggleTag(this)">その他</button>
               </div>
             </div>
             <div class="field">
@@ -670,6 +672,7 @@
           </div>
           <div style="display:flex; gap:8px; align-items:center">
             <div class="notion-badge">📓 Notion同期済み</div>
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-archived" onclick="toggleArchived()">◌ アーカイブ済みを表示</button>
             <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSVエクスポート</button>
           </div>
         </div>
@@ -978,13 +981,30 @@ async function sendEmail(idx) {
   } catch(e) { showToast('メール送信エラー', 'error'); }
 }
 
-// --- Delete Lead ---
-function deleteLead(idx) {
-  if (!confirm('このリードを削除しますか？')) return;
-  leads.splice(idx, 1);
+// --- Archive Lead ---
+let showArchived = false;
+function archiveLead(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  leads[actualIdx].archived = true;
   localStorage.setItem('expo_leads', JSON.stringify(leads));
   updateLeadsList();
-  showToast('削除しました', '');
+  showToast('アーカイブしました', '');
+}
+function restoreLead(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  leads[actualIdx].archived = false;
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  updateLeadsList();
+  showToast('復元しました', 'success');
+}
+function getFilteredLeads() {
+  return leads.map((l, i) => ({ ...l, originalIdx: i }))
+    .filter(l => showArchived ? l.archived : !l.archived);
+}
+function toggleArchived() {
+  showArchived = !showArchived;
+  document.getElementById('btn-toggle-archived').textContent = showArchived ? '✦ アクティブを表示' : '◌ アーカイブ済みを表示';
+  updateLeadsList();
 }
 
 // --- Form ---
@@ -1005,11 +1025,17 @@ function updateLeadsList() {
   document.getElementById('count-mid').textContent = leads.filter(l => l.score === 'MID').length;
   document.getElementById('count-low').textContent = leads.filter(l => l.score === 'LOW').length;
 
-  if (!leads.length) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">まだリードがありません</div></td></tr>';
+  const filtered = getFilteredLeads();
+  document.getElementById('count-total').textContent = leads.filter(l => !l.archived).length;
+  document.getElementById('count-high').textContent = leads.filter(l => !l.archived && l.score === 'HIGH').length;
+  document.getElementById('count-mid').textContent = leads.filter(l => !l.archived && l.score === 'MID').length;
+  document.getElementById('count-low').textContent = leads.filter(l => !l.archived && l.score === 'LOW').length;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">${showArchived ? 'アーカイブ済みリードはありません' : 'まだリードがありません'}</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = leads.map((l, idx) => {
+  tbody.innerHTML = filtered.map((l, idx) => {
     const scoreClass = l.score === 'HIGH' ? 'high' : l.score === 'MID' ? 'mid' : 'low';
     const scoreLabel = l.score === 'HIGH' ? '🔥 高' : l.score === 'MID' ? '✦ 中' : '◌ 低';
     const dt = new Date(l.timestamp);
@@ -1017,13 +1043,16 @@ function updateLeadsList() {
     const emailBtn = l.emailSent
       ? '<span class="sent-check">✓ 送信済み</span>'
       : `<button class="btn btn-secondary btn-sm" onclick="sendEmail(${idx})">📧 送信</button>`;
-    return `<tr>
+    const archiveBtn = l.archived
+      ? `<button class="btn btn-secondary btn-sm" onclick="restoreLead(${idx})">復元</button>`
+      : `<button class="btn btn-secondary btn-sm" onclick="archiveLead(${idx})" style="color:var(--text3)">アーカイブ</button>`;
+    return `<tr style="${l.archived ? 'opacity:0.6' : ''}">
       <td><div class="lead-name">${l.name}</div><div class="lead-company">${l.company}</div></td>
       <td><span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span></td>
       <td><div class="lead-memo" title="${l.memo}">${l.memo}</div></td>
       <td>${emailBtn}</td>
       <td><div class="lead-time">${dtStr}</div></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteLead(${idx})">削除</button></td>
+      <td>${archiveBtn}</td>
     </tr>`;
   }).join('');
 }
