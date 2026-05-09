@@ -424,6 +424,98 @@
   }
 
   /* Notion badge */
+  /* Detail Panel */
+  .detail-panel {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 480px;
+    height: 100vh;
+    background: var(--surface);
+    border-left: 1px solid var(--border2);
+    z-index: 50;
+    overflow-y: auto;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-panel.open { right: 0; }
+  .detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 49;
+    display: none;
+  }
+  .detail-overlay.open { display: block; }
+  .detail-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+  .detail-header-name { font-size: 15px; font-weight: 500; }
+  .detail-header-company { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .detail-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px;
+    line-height: 1;
+  }
+  .detail-close:hover { color: var(--text); }
+  .detail-body { padding: 24px; flex: 1; }
+  .detail-section { margin-bottom: 20px; }
+  .detail-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .detail-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .detail-info-item { font-size: 12px; }
+  .detail-info-label { color: var(--text3); margin-bottom: 2px; }
+  .detail-info-value { color: var(--text); font-weight: 500; }
+  .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .detail-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(56,189,248,0.1);
+    border: 1px solid rgba(56,189,248,0.3);
+    color: var(--accent);
+  }
+  .detail-memo {
+    font-size: 13px;
+    color: var(--text2);
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    line-height: 1.7;
+  }
+  .detail-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .lead-row-clickable { cursor: pointer; }
+  .lead-row-clickable:hover td { background: rgba(56,189,248,0.04) !important; }
+
   .notion-badge {
     display: inline-flex;
     align-items: center;
@@ -699,6 +791,69 @@
   </div>
 </div>
 
+<!-- Detail Panel Overlay -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+
+<!-- Detail Panel -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div>
+      <div class="detail-header-name" id="dp-name">—</div>
+      <div class="detail-header-company" id="dp-company">—</div>
+    </div>
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="detail-body">
+    <div class="detail-section">
+      <div class="detail-section-title">基本情報</div>
+      <div class="detail-info-grid">
+        <div class="detail-info-item">
+          <div class="detail-info-label">メールアドレス</div>
+          <div class="detail-info-value" id="dp-email">—</div>
+        </div>
+        <div class="detail-info-item">
+          <div class="detail-info-label">役職・部署</div>
+          <div class="detail-info-value" id="dp-role">—</div>
+        </div>
+        <div class="detail-info-item">
+          <div class="detail-info-label">スコア</div>
+          <div class="detail-info-value" id="dp-score">—</div>
+        </div>
+        <div class="detail-info-item">
+          <div class="detail-info-label">登録日時</div>
+          <div class="detail-info-value" id="dp-time">—</div>
+        </div>
+      </div>
+      <div id="dp-tags" class="detail-tags"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">担当者メモ</div>
+      <div class="detail-memo" id="dp-memo">—</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">AIコメント</div>
+      <div class="detail-memo" id="dp-ai-comment">—</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">フォローメール（編集可）</div>
+      <div class="field" style="margin-bottom:8px">
+        <label>件名</label>
+        <input type="text" id="dp-subject" placeholder="件名" />
+      </div>
+      <div class="field">
+        <label>本文</label>
+        <textarea id="dp-body" style="min-height:220px; font-size:13px; line-height:1.8;"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="detail-footer">
+    <button class="btn btn-primary" id="dp-send-btn" onclick="sendEmailFromDetail()" style="flex:1">
+      📧 メール送信
+    </button>
+    <button class="btn btn-secondary" onclick="saveEmailEdit()">編集を保存</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -946,7 +1101,7 @@ async function saveOnly() {
 
 // --- Send Email from leads list ---
 async function sendEmail(idx) {
-  const lead = leads[idx];
+  const lead = getFilteredLeads()[idx];
   if (!lead) return;
   if (!cfg['cfg-ms-token'] || !cfg['cfg-from-email']) {
     showToast('Outlookの設定が必要です', 'error');
@@ -971,7 +1126,8 @@ async function sendEmail(idx) {
       body: JSON.stringify(mailBody)
     });
     if (res.status === 202) {
-      leads[idx].emailSent = true;
+      const actualIdx = getFilteredLeads()[idx].originalIdx;
+      leads[actualIdx].emailSent = true;
       localStorage.setItem('expo_leads', JSON.stringify(leads));
       updateLeadsList();
       showToast('メール送信完了✓', 'success');
@@ -1046,15 +1202,77 @@ function updateLeadsList() {
     const archiveBtn = l.archived
       ? `<button class="btn btn-secondary btn-sm" onclick="restoreLead(${idx})">復元</button>`
       : `<button class="btn btn-secondary btn-sm" onclick="archiveLead(${idx})" style="color:var(--text3)">アーカイブ</button>`;
-    return `<tr style="${l.archived ? 'opacity:0.6' : ''}">
+    return `<tr class="lead-row-clickable" style="${l.archived ? 'opacity:0.6' : ''}" onclick="openDetail(${idx})">
       <td><div class="lead-name">${l.name}</div><div class="lead-company">${l.company}</div></td>
       <td><span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span></td>
       <td><div class="lead-memo" title="${l.memo}">${l.memo}</div></td>
-      <td>${emailBtn}</td>
+      <td onclick="event.stopPropagation()">${emailBtn}</td>
       <td><div class="lead-time">${dtStr}</div></td>
-      <td>${archiveBtn}</td>
+      <td onclick="event.stopPropagation()">${archiveBtn}</td>
     </tr>`;
   }).join('');
+}
+
+// --- Detail Panel ---
+let currentDetailIdx = null;
+function openDetail(idx) {
+  const l = getFilteredLeads()[idx];
+  if (!l) return;
+  currentDetailIdx = idx;
+  document.getElementById('dp-name').textContent = l.name;
+  document.getElementById('dp-company').textContent = l.company;
+  document.getElementById('dp-email').textContent = l.email;
+  document.getElementById('dp-role').textContent = l.role || '—';
+  const scoreLabel = l.score === 'HIGH' ? '🔥 高スコア' : l.score === 'MID' ? '✦ 中スコア' : '◌ 低スコア';
+  document.getElementById('dp-score').textContent = scoreLabel;
+  const dt = new Date(l.timestamp);
+  document.getElementById('dp-time').textContent = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('dp-memo').textContent = l.memo || '—';
+  document.getElementById('dp-ai-comment').textContent = l.reason || l.ai_comment || '—';
+  document.getElementById('dp-subject').value = l.subject || '';
+  document.getElementById('dp-body').value = l.body || '';
+
+  // タグ表示
+  const tags = [...(l.leadTypes||[]), ...(l.industries||[]), ...(l.products||[])];
+  document.getElementById('dp-tags').innerHTML = tags.map(t => `<span class="detail-tag">${t}</span>`).join('');
+
+  // 送信済みの場合はボタンを変更
+  const sendBtn = document.getElementById('dp-send-btn');
+  if (l.emailSent) {
+    sendBtn.textContent = '✓ 送信済み';
+    sendBtn.disabled = true;
+  } else {
+    sendBtn.innerHTML = '📧 メール送信';
+    sendBtn.disabled = false;
+  }
+
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('detail-overlay').classList.remove('open');
+  currentDetailIdx = null;
+}
+
+function saveEmailEdit() {
+  if (currentDetailIdx === null) return;
+  const l = getFilteredLeads()[currentDetailIdx];
+  const actualIdx = l.originalIdx;
+  leads[actualIdx].subject = document.getElementById('dp-subject').value;
+  leads[actualIdx].body = document.getElementById('dp-body').value;
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  showToast('メール内容を保存しました', 'success');
+}
+
+async function sendEmailFromDetail() {
+  if (currentDetailIdx === null) return;
+  // まず編集内容を保存
+  saveEmailEdit();
+  const l = getFilteredLeads()[currentDetailIdx];
+  await sendEmail(currentDetailIdx);
+  closeDetail();
 }
 
 // --- CSV Export ---
