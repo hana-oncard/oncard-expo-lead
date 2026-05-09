@@ -1270,7 +1270,7 @@ function restoreLead(idx) {
 }
 function getFilteredLeads() {
   return leads.map((l, i) => ({ ...l, originalIdx: i }))
-    .filter(l => showArchived ? l.archived : !l.archived);
+    .filter(l => showArchived ? !!l.archived : !l.archived);
 }
 function toggleArchived() {
   showArchived = !showArchived;
@@ -1290,41 +1290,46 @@ function clearForm() {
 
 // --- Leads list ---
 function updateLeadsList() {
-  const tbody = document.getElementById('leads-tbody');
-  document.getElementById('count-total').textContent = leads.length;
-  document.getElementById('count-high').textContent = leads.filter(l => l.score === 'HIGH').length;
-  document.getElementById('count-mid').textContent = leads.filter(l => l.score === 'MID').length;
-  document.getElementById('count-low').textContent = leads.filter(l => l.score === 'LOW').length;
-
-  const filtered = getFilteredLeads();
   document.getElementById('count-total').textContent = leads.filter(l => !l.archived).length;
   document.getElementById('count-high').textContent = leads.filter(l => !l.archived && l.score === 'HIGH').length;
   document.getElementById('count-mid').textContent = leads.filter(l => !l.archived && l.score === 'MID').length;
   document.getElementById('count-low').textContent = leads.filter(l => !l.archived && l.score === 'LOW').length;
 
+  const filtered = getFilteredLeads();
+  const container = document.getElementById('leads-cards');
+  if (!container) return;
+
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">${showArchived ? 'アーカイブ済みリードはありません' : 'まだリードがありません'}</div></td></tr>`;
+    container.innerHTML = `<div class="empty-state">${showArchived ? 'アーカイブ済みリードはありません' : 'まだリードがありません'}</div>`;
     return;
   }
-  tbody.innerHTML = filtered.map((l, idx) => {
+  container.innerHTML = filtered.map((l, idx) => {
     const scoreClass = l.score === 'HIGH' ? 'high' : l.score === 'MID' ? 'mid' : 'low';
     const scoreLabel = l.score === 'HIGH' ? '🔥 高' : l.score === 'MID' ? '✦ 中' : '◌ 低';
     const dt = new Date(l.timestamp);
     const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const tags = [...(l.leadTypes||[]), ...(l.industries||[]), ...(l.products||[])];
     const emailBtn = l.emailSent
-      ? '<span class="sent-check">✓ 送信済み</span>'
-      : `<button class="btn btn-secondary btn-sm" onclick="sendEmail(${idx})">📧 送信</button>`;
+      ? '<span class="sent-check" style="font-size:11px">✓ 送信済み</span>'
+      : `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();sendEmail(${idx})">📧 送信</button>`;
     const archiveBtn = l.archived
-      ? `<button class="btn btn-secondary btn-sm" onclick="restoreLead(${idx})">復元</button>`
-      : `<button class="btn btn-secondary btn-sm" onclick="archiveLead(${idx})" style="color:var(--text3)">アーカイブ</button>`;
-    return `<tr class="lead-row-clickable" style="${l.archived ? 'opacity:0.6' : ''}" onclick="openDetail(${idx})">
-      <td><div class="lead-name">${l.name}</div><div class="lead-company">${l.company}</div></td>
-      <td><span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span></td>
-      <td><div class="lead-memo" title="${l.memo}">${l.memo}</div></td>
-      <td onclick="event.stopPropagation()">${emailBtn}</td>
-      <td><div class="lead-time">${dtStr}</div></td>
-      <td onclick="event.stopPropagation()">${archiveBtn}</td>
-    </tr>`;
+      ? `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();restoreLead(${idx})">復元</button>`
+      : `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();archiveLead(${idx})" style="color:var(--text3)">アーカイブ</button>`;
+    return `<div class="lead-card" style="${l.archived ? 'opacity:0.6' : ''}" onclick="showLeadDetail(${idx})">
+      <div class="lead-card-header">
+        <div>
+          <div class="lead-card-name">${l.name}</div>
+          <div class="lead-card-company">${l.company}</div>
+        </div>
+        <span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span>
+      </div>
+      ${tags.length ? `<div class="lead-card-tags">${tags.map(t=>`<span class="lead-card-tag">${t}</span>`).join('')}</div>` : ''}
+      <div class="lead-card-memo">${l.memo || '—'}</div>
+      <div class="lead-card-footer">
+        <div class="lead-card-time">${dtStr}</div>
+        <div class="lead-card-actions">${emailBtn}${archiveBtn}</div>
+      </div>
+    </div>`;
   }).join('');
 }
 
