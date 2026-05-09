@@ -483,6 +483,59 @@
   .tag-btn:hover { border-color: var(--accent); color: var(--text); }
   .tag-btn.selected { background: rgba(2,132,199,0.15); border-color: var(--accent); color: var(--accent); }
 
+  .lead-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .lead-card:hover { border-color: var(--border2); }
+  .lead-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .lead-card-name { font-weight: 500; font-size: 14px; }
+  .lead-card-company { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .lead-card-memo { font-size: 12px; color: var(--text2); margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lead-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .lead-card-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .lead-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .lead-card-time { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .lead-card-actions { display: flex; gap: 6px; }
+
+  /* 詳細モーダル */
+  .lead-detail-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    z-index: 50;
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+  .lead-detail-modal.show { display: block; }
+  .lead-detail-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .lead-detail-modal-header h2 { font-size: 16px; font-weight: 500; }
+  .lead-detail-close {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .detail-section { margin-bottom: 16px; }
+  .detail-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .detail-value { font-size: 13px; color: var(--text); }
+  .detail-box { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; font-size: 13px; color: var(--text); line-height: 1.7; }
+
   .empty-state {
     padding: 60px;
     text-align: center;
@@ -835,22 +888,8 @@
             <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSVエクスポート</button>
           </div>
         </div>
-        <div class="leads-table-wrap">
-          <table class="leads-table">
-            <thead>
-              <tr>
-                <th>氏名 / 会社</th>
-                <th>スコア</th>
-                <th>担当者メモ</th>
-                <th>メール送信</th>
-                <th>登録日時</th>
-                <th>アクション</th>
-              </tr>
-            </thead>
-            <tbody id="leads-tbody">
-              <tr><td colspan="6"><div class="empty-state">まだリードがありません</div></td></tr>
-            </tbody>
-          </table>
+        <div id="leads-cards">
+          <div class="empty-state">まだリードがありません</div>
         </div>
       </div>
 
@@ -919,6 +958,15 @@
     </button>
     <button class="btn btn-secondary" onclick="saveEmailEdit()">編集を保存</button>
   </div>
+</div>
+
+<!-- Lead Detail Modal -->
+<div class="lead-detail-modal" id="lead-detail-modal">
+  <div class="lead-detail-modal-header">
+    <h2 id="detail-name">詳細</h2>
+    <button class="lead-detail-close" onclick="closeLeadDetail()">✕ 閉じる</button>
+  </div>
+  <div id="lead-detail-content"></div>
 </div>
 
 <!-- Toast -->
@@ -1340,6 +1388,58 @@ async function sendEmailFromDetail() {
   const l = getFilteredLeads()[currentDetailIdx];
   await sendEmail(currentDetailIdx);
   closeDetail();
+}
+
+// --- Lead Detail ---
+function showLeadDetail(idx) {
+  const l = getFilteredLeads()[idx];
+  if (!l) return;
+  const scoreClass = l.score === 'HIGH' ? 'high' : l.score === 'MID' ? 'mid' : 'low';
+  const scoreLabel = l.score === 'HIGH' ? '🔥 高スコア' : l.score === 'MID' ? '✦ 中スコア' : '◌ 低スコア';
+  const tags = [...(l.leadTypes||[]), ...(l.industries||[]), ...(l.products||[])];
+  const dt = new Date(l.timestamp).toLocaleString('ja-JP');
+  document.getElementById('detail-name').textContent = l.name + '　' + l.company;
+  document.getElementById('lead-detail-content').innerHTML = `
+    <div class="detail-section">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px">
+        <span class="score-badge ${scoreClass}">${scoreLabel}</span>
+        ${l.emailSent ? '<span class="score-badge" style="border-color:var(--high);color:var(--high)">✓ メール送信済み</span>' : ''}
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">基本情報</div>
+      <div class="detail-box">
+        <div>📧 ${l.email || '未入力'}</div>
+        <div>💼 ${l.role || '未入力'}</div>
+        <div>🕐 ${dt}</div>
+      </div>
+    </div>
+    ${tags.length ? `<div class="detail-section"><div class="detail-label">タグ</div><div class="lead-card-tags">${tags.map(t=>`<span class="lead-card-tag">${t}</span>`).join('')}</div></div>` : ''}
+    <div class="detail-section">
+      <div class="detail-label">担当者メモ</div>
+      <div class="detail-box">${l.memo || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">AI分析コメント</div>
+      <div class="detail-box">${l.reason || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">メール件名</div>
+      <div class="detail-box">${l.subject || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">メール本文</div>
+      <div class="detail-box" style="white-space:pre-wrap">${l.body || '—'}</div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap">
+      ${!l.emailSent ? `<button class="btn btn-primary" onclick="sendEmail(${idx});closeLeadDetail()">📧 メール送信</button>` : ''}
+      ${!l.archived ? `<button class="btn btn-secondary" onclick="archiveLead(${idx});closeLeadDetail()">アーカイブ</button>` : `<button class="btn btn-secondary" onclick="restoreLead(${idx});closeLeadDetail()">復元</button>`}
+    </div>
+  `;
+  document.getElementById('lead-detail-modal').classList.add('show');
+}
+function closeLeadDetail() {
+  document.getElementById('lead-detail-modal').classList.remove('show');
 }
 
 // --- CSV Export ---
