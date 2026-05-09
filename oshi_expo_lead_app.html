@@ -1065,13 +1065,13 @@ async function saveOnly() {
     notionSaved = makeRes.ok;
   } catch(e) { console.error('Make webhook error:', e); notionSaved = false; }
 
-  // 2) Google Spreadsheet via GAS
+  // 2) Google Spreadsheet via GAS proxy
   if (cfg['cfg-gas-url']) {
     try {
-      const gasRes = await fetch(cfg['cfg-gas-url'], {
+      const gasRes = await fetch('/api/gas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ gasUrl: cfg['cfg-gas-url'], payload })
       });
       gasSaved = gasRes.ok;
     } catch(e) { console.error('GAS error:', e); gasSaved = false; }
