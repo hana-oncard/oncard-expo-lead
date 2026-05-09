@@ -15,8 +15,8 @@
     --text: #e8e8f0;
     --text2: #8888a0;
     --text3: #55556a;
-    --accent: #c084fc;
-    --accent2: #a855f7;
+    --accent: #2dd4bf;
+    --accent2: #0d9488;
     --high: #4ade80;
     --mid: #facc15;
     --low: #94a3b8;
@@ -400,6 +400,22 @@
   /* Divider */
   .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
+  .tag-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-btn {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .tag-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tag-btn.selected { background: rgba(13,148,136,0.15); border-color: var(--accent); color: var(--accent); }
+
   .empty-state {
     padding: 60px;
     text-align: center;
@@ -485,7 +501,7 @@
           </div>
 
           <div class="setup-card">
-            <h3>📓 Notion</h3>
+            <h3>📓 Notion ＋ スプレッドシート</h3>
             <div class="field">
               <label>Notion Integration Token</label>
               <input type="password" id="cfg-notion-token" placeholder="secret_..." />
@@ -494,9 +510,14 @@
               </div>
             </div>
             <div class="field">
-              <label>Database ID</label>
+              <label>Notion Database ID</label>
               <input type="text" id="cfg-notion-db" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
               <div class="hint">NotionのURLから取得。例：notion.so/xxx/<b>DATABASE_ID</b>?v=...</div>
+            </div>
+            <div class="field">
+              <label>Google Apps Script URL</label>
+              <input type="text" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/..." />
+              <div class="hint">スプレッドシートへのリアルタイム保存に使用</div>
             </div>
           </div>
 
@@ -545,6 +566,37 @@
                 <input type="text" id="inp-role" placeholder="マーケティング部 課長" />
               </div>
             </div>
+            <div class="field">
+              <label>リード種別（複数選択可）</label>
+              <div class="tag-selector" id="sel-lead-type">
+                <button class="tag-btn" onclick="toggleTag(this)">導入候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">代理店・販売パートナー候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">協業・共同開発候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">投資家・出資候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">メディア・PR候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">競合調査</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>業界（複数選択可）</label>
+              <div class="tag-selector" id="sel-industry">
+                <button class="tag-btn" onclick="toggleTag(this)">小売店</button>
+                <button class="tag-btn" onclick="toggleTag(this)">ホテル・カラオケ</button>
+                <button class="tag-btn" onclick="toggleTag(this)">芸能・音楽</button>
+                <button class="tag-btn" onclick="toggleTag(this)">スポーツ</button>
+                <button class="tag-btn" onclick="toggleTag(this)">IPホルダー</button>
+                <button class="tag-btn" onclick="toggleTag(this)">エンターテイメント事業・その他</button>
+                <button class="tag-btn" onclick="toggleTag(this)">インバウンド</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>興味プロダクト（複数選択可）</label>
+              <div class="tag-selector" id="sel-product">
+                <button class="tag-btn" onclick="toggleTag(this)">AR</button>
+                <button class="tag-btn" onclick="toggleTag(this)">Wトリガー</button>
+                <button class="tag-btn" onclick="toggleTag(this)">OLA</button>
+              </div>
+            </div>
           </div>
 
           <div class="lead-form-card">
@@ -577,13 +629,17 @@
               <div class="score-badge" id="result-score-badge">—</div>
             </div>
             <div class="ai-reason" id="result-reason"></div>
-            <div class="email-subject">
-              件名：<span id="result-subject"></span>
+            <div class="field" style="margin-bottom:8px">
+              <label>件名（編集可）</label>
+              <input type="text" id="result-subject" placeholder="件名" />
             </div>
-            <div class="email-preview" id="result-body"></div>
+            <div class="field">
+              <label>メール本文（編集可）</label>
+              <textarea id="result-body" style="min-height:200px; font-size:13px; line-height:1.8;"></textarea>
+            </div>
             <div class="action-row">
-              <button class="btn btn-primary" id="btn-send" onclick="sendAndSave()">
-                📧 Outlookで送信 ＋ Notionに保存
+              <button class="btn btn-primary" id="btn-save" onclick="saveOnly()">
+                💾 保存（Notion ＋ スプレッドシート）
               </button>
               <button class="btn btn-secondary btn-sm" onclick="regenerate()">再生成</button>
             </div>
@@ -624,12 +680,13 @@
                 <th>氏名 / 会社</th>
                 <th>スコア</th>
                 <th>担当者メモ</th>
-                <th>送信メール</th>
+                <th>メール送信</th>
                 <th>登録日時</th>
+                <th>アクション</th>
               </tr>
             </thead>
             <tbody id="leads-tbody">
-              <tr><td colspan="5"><div class="empty-state">まだリードがありません</div></td></tr>
+              <tr><td colspan="6"><div class="empty-state">まだリードがありません</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -658,6 +715,7 @@ function init() {
   if (cfg['cfg-ms-token']) document.getElementById('cfg-ms-token').value = cfg['cfg-ms-token'];
   if (cfg['cfg-notion-token']) document.getElementById('cfg-notion-token').value = cfg['cfg-notion-token'];
   if (cfg['cfg-notion-db']) document.getElementById('cfg-notion-db').value = cfg['cfg-notion-db'];
+  if (cfg['cfg-gas-url']) document.getElementById('cfg-gas-url').value = cfg['cfg-gas-url'];
   if (cfg['cfg-subj-high']) document.getElementById('cfg-subj-high').value = cfg['cfg-subj-high'];
   if (cfg['cfg-subj-mid']) document.getElementById('cfg-subj-mid').value = cfg['cfg-subj-mid'];
   if (cfg['cfg-subj-low']) document.getElementById('cfg-subj-low').value = cfg['cfg-subj-low'];
@@ -677,13 +735,21 @@ function switchView(v) {
 
 // --- Config ---
 function saveConfig() {
-  const keys = ['cfg-claude','cfg-company','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
+  const keys = ['cfg-claude','cfg-company','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
   keys.forEach(k => { cfg[k] = document.getElementById(k).value; });
   localStorage.setItem('expo_cfg', JSON.stringify(cfg));
   showToast('設定を保存しました', 'success');
 }
 
 function getVal(id) { return document.getElementById(id).value.trim(); }
+
+// --- Tag selector ---
+function toggleTag(btn) {
+  btn.classList.toggle('selected');
+}
+function getSelectedTags(containerId) {
+  return Array.from(document.querySelectorAll('#' + containerId + ' .tag-btn.selected')).map(b => b.textContent);
+}
 
 // --- Score selector ---
 function selectScore(score, btn) {
@@ -698,6 +764,9 @@ async function analyzeLead() {
   const company = getVal('inp-company');
   const email = getVal('inp-email');
   const memo = getVal('inp-memo');
+  const leadTypes = getSelectedTags('sel-lead-type');
+  const industries = getSelectedTags('sel-industry');
+  const products = getSelectedTags('sel-product');
 
   if (!name || !company || !email) { showToast('氏名・会社名・メールアドレスは必須です', 'error'); return; }
   if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); switchView('setup'); return; }
@@ -723,15 +792,24 @@ async function analyzeLead() {
 - 氏名：${name}
 - 会社：${company}
 - 役職：${getVal('inp-role') || '不明'}
+- リード種別：${leadTypes.length ? leadTypes.join('、') : '未選択'}
+- 業界：${industries.length ? industries.join('、') : '未選択'}
+- 興味プロダクト：${products.length ? products.join('、') : '未選択'}
 - 担当者メモ：${memo} ${hintScore}
 
 ## 送信者情報
 - 送信者名：${senderName}（${companyName}）
+- 自社プロダクト：AR（拡張現実）、Wトリガー（二次元コード連動）、OLA（オンラインアクティベーション）
 
 ## スコア基準
 - HIGH（高）：具体的な検討段階、予算感あり、意思決定者に近い、短期での商談可能性が高い
 - MID（中）：興味はあるが検討初期、複数の意思決定者が必要、3〜6ヶ月以内の可能性
 - LOW（低）：情報収集段階、予算・意思決定権なし、長期的なナーチャリングが必要
+
+## メール作成の指示
+- 相手の業界・リード種別・興味プロダクトに合わせてパーソナライズすること
+- 競合調査の場合はナーチャリング的な内容にすること
+- 興味プロダクトがある場合はそのプロダクトに触れること
 
 ## 件名プレフィックス
 - HIGH：${subjHigh}
@@ -761,7 +839,7 @@ async function analyzeLead() {
     const text = data.content.map(i => i.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
-    currentResult = { ...result, name, company, email, role: getVal('inp-role'), memo };
+    currentResult = { ...result, name, company, email, role: getVal('inp-role'), memo, leadTypes, industries, products };
     showResult(result);
   } catch(e) {
     showToast('AI分析に失敗しました。APIキーと接続を確認してください。', 'error');
@@ -778,100 +856,142 @@ function showResult(r) {
   badge.className = 'score-badge ' + scoreClass;
   badge.textContent = scoreLabel;
   document.getElementById('result-reason').textContent = '📊 ' + r.reason;
-  document.getElementById('result-subject').textContent = r.subject;
-  document.getElementById('result-body').textContent = r.body;
+  document.getElementById('result-subject').value = r.subject;
+  document.getElementById('result-body').value = r.body;
   document.getElementById('ai-result').classList.add('show');
   document.getElementById('ai-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function regenerate() { analyzeLead(); }
 
-// --- Send & Save ---
-async function sendAndSave() {
+// --- Save Only (no email) ---
+async function saveOnly() {
   if (!currentResult) return;
-  const btn = document.getElementById('btn-send');
+  const btn = document.getElementById('btn-save');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> 送信中...';
+  btn.innerHTML = '<span class="spinner"></span> 保存中...';
 
-  let emailSent = false;
+  // 編集済みの件名・本文を取得
+  const editedSubject = document.getElementById('result-subject').value;
+  const editedBody = document.getElementById('result-body').value;
+  currentResult.subject = editedSubject;
+  currentResult.body = editedBody;
+
   let notionSaved = false;
+  let gasSaved = false;
 
-  // 1) Send via Microsoft Graph API
-  if (cfg['cfg-ms-token'] && cfg['cfg-from-email']) {
-    try {
-      const mailBody = {
-        message: {
-          subject: currentResult.subject,
-          body: { contentType: 'Text', content: currentResult.body },
-          toRecipients: [{ emailAddress: { address: currentResult.email, name: currentResult.name } }],
-          from: { emailAddress: { address: cfg['cfg-from-email'], name: cfg['cfg-sender-name'] || '担当者' } }
-        },
-        saveToSentItems: true
-      };
-      const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + cfg['cfg-ms-token']
-        },
-        body: JSON.stringify(mailBody)
-      });
-      emailSent = res.status === 202;
-    } catch(e) { emailSent = false; }
-  }
+  const payload = {
+    name: currentResult.name,
+    company: currentResult.company,
+    email: currentResult.email,
+    role: currentResult.role || '',
+    lead_types: (currentResult.leadTypes || []).join('、'),
+    industries: (currentResult.industries || []).join('、'),
+    products: (currentResult.products || []).join('、'),
+    score: currentResult.score,
+    memo: currentResult.memo,
+    ai_comment: currentResult.reason,
+    email_subject: editedSubject,
+    email_body: editedBody,
+    email_sent: false,
+    timestamp: new Date().toISOString()
+  };
 
-  // 2) Save to Notion via Make Webhook
+  // 1) Notion via Make Webhook
   try {
     const makeRes = await fetch('https://hook.us2.make.com/axqqrllufqwt226ppy6jydg1ru5v2glx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: currentResult.name,
-        company: currentResult.company,
-        email: currentResult.email,
-        role: currentResult.role || '',
-        score: currentResult.score,
-        memo: currentResult.memo,
-        ai_comment: currentResult.reason,
-        email_subject: currentResult.subject,
-        email_sent: emailSent,
-        timestamp: new Date().toISOString()
-      })
+      body: JSON.stringify(payload)
     });
     notionSaved = makeRes.ok;
   } catch(e) { console.error('Make webhook error:', e); notionSaved = false; }
 
+  // 2) Google Spreadsheet via GAS
+  if (cfg['cfg-gas-url']) {
+    try {
+      const gasRes = await fetch(cfg['cfg-gas-url'], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      gasSaved = gasRes.ok;
+    } catch(e) { console.error('GAS error:', e); gasSaved = false; }
+  }
+
   // 3) Save locally always
   const lead = {
     ...currentResult,
-    emailSent,
+    emailSent: false,
     notionSaved,
+    gasSaved,
     timestamp: new Date().toISOString()
   };
   leads.unshift(lead);
   localStorage.setItem('expo_leads', JSON.stringify(leads));
 
   btn.disabled = false;
-  btn.innerHTML = '📧 Outlookで送信 ＋ Notionに保存';
+  btn.innerHTML = '💾 保存（Notion ＋ スプレッドシート）';
 
   const msgs = [];
-  if (emailSent) msgs.push('メール送信✓');
-  else if (!cfg['cfg-ms-token']) msgs.push('メール（トークン未設定）');
-  else msgs.push('メール送信失敗');
-  if (notionSaved) msgs.push('Notion保存✓');
-  else if (!cfg['cfg-notion-token']) msgs.push('Notion（未設定）');
-  else msgs.push('Notion保存失敗');
+  msgs.push(notionSaved ? 'Notion✓' : 'Notion（後で同期）');
+  if (cfg['cfg-gas-url']) msgs.push(gasSaved ? 'スプレッドシート✓' : 'スプレッドシート失敗');
 
-  const allOk = (emailSent || !cfg['cfg-ms-token']) && (notionSaved || !cfg['cfg-notion-token']);
-  showToast(msgs.join(' ／ '), allOk ? 'success' : 'error');
+  showToast(msgs.join(' ／ '), 'success');
+  setTimeout(() => clearForm(), 1500);
+}
 
-  if (emailSent || notionSaved) setTimeout(() => clearForm(), 1500);
+// --- Send Email from leads list ---
+async function sendEmail(idx) {
+  const lead = leads[idx];
+  if (!lead) return;
+  if (!cfg['cfg-ms-token'] || !cfg['cfg-from-email']) {
+    showToast('Outlookの設定が必要です', 'error');
+    return;
+  }
+  try {
+    const mailBody = {
+      message: {
+        subject: lead.subject,
+        body: { contentType: 'Text', content: lead.body || '' },
+        toRecipients: [{ emailAddress: { address: lead.email, name: lead.name } }],
+        from: { emailAddress: { address: cfg['cfg-from-email'], name: cfg['cfg-sender-name'] || '担当者' } }
+      },
+      saveToSentItems: true
+    };
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + cfg['cfg-ms-token']
+      },
+      body: JSON.stringify(mailBody)
+    });
+    if (res.status === 202) {
+      leads[idx].emailSent = true;
+      localStorage.setItem('expo_leads', JSON.stringify(leads));
+      updateLeadsList();
+      showToast('メール送信完了✓', 'success');
+    } else {
+      showToast('メール送信失敗', 'error');
+    }
+  } catch(e) { showToast('メール送信エラー', 'error'); }
+}
+
+// --- Delete Lead ---
+function deleteLead(idx) {
+  if (!confirm('このリードを削除しますか？')) return;
+  leads.splice(idx, 1);
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  updateLeadsList();
+  showToast('削除しました', '');
 }
 
 // --- Form ---
 function clearForm() {
   ['inp-name','inp-company','inp-email','inp-role','inp-memo'].forEach(id => document.getElementById(id).value = '');
   document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
   currentScore = null;
   currentResult = null;
   document.getElementById('ai-result').classList.remove('show');
@@ -889,17 +1009,21 @@ function updateLeadsList() {
     tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">まだリードがありません</div></td></tr>';
     return;
   }
-  tbody.innerHTML = leads.map(l => {
+  tbody.innerHTML = leads.map((l, idx) => {
     const scoreClass = l.score === 'HIGH' ? 'high' : l.score === 'MID' ? 'mid' : 'low';
     const scoreLabel = l.score === 'HIGH' ? '🔥 高' : l.score === 'MID' ? '✦ 中' : '◌ 低';
     const dt = new Date(l.timestamp);
     const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const emailBtn = l.emailSent
+      ? '<span class="sent-check">✓ 送信済み</span>'
+      : `<button class="btn btn-secondary btn-sm" onclick="sendEmail(${idx})">📧 送信</button>`;
     return `<tr>
       <td><div class="lead-name">${l.name}</div><div class="lead-company">${l.company}</div></td>
       <td><span class="score-badge ${scoreClass}" style="font-size:11px">${scoreLabel}</span></td>
       <td><div class="lead-memo" title="${l.memo}">${l.memo}</div></td>
-      <td>${l.emailSent ? '<span class="sent-check">✓ 送信済み</span>' : '<span class="pending">未送信</span>'}</td>
+      <td>${emailBtn}</td>
       <td><div class="lead-time">${dtStr}</div></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteLead(${idx})">削除</button></td>
     </tr>`;
   }).join('');
 }
