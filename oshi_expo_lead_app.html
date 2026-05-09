@@ -70,6 +70,26 @@
     .tag-selector { gap: 6px; }
     .tag-btn { font-size: 11px; padding: 5px 10px; }
     .score-selector { gap: 6px; }
+
+    /* スタッツカードを2x2に */
+    .leads-stats { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+    .stat { text-align: center; flex: unset; }
+
+    /* ボタン群を縦に */
+    .leads-header > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+    .leads-header > div:last-child .btn { flex: 1; justify-content: center; }
+    .notion-badge { width: 100%; justify-content: center; }
+
+    /* 設定画面を1カラムに */
+    .setup-grid { grid-template-columns: 1fr !important; }
+    .setup-card input, .setup-card textarea { font-size: 16px; }
+
+    /* 詳細モーダルのパディング */
+    .lead-form-card { padding: 16px; }
+    .ai-result { padding: 16px; }
+
+    /* テーブルは横スクロール */
+    .leads-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
   body {
     font-family: 'Noto Sans JP', sans-serif;
@@ -697,7 +717,7 @@
             </div>
             <div class="form-row">
               <div class="field">
-                <label>メールアドレス <span style="color:var(--red)">*</span></label>
+                <label>メールアドレス <span style="color:var(--text3); font-size:11px">（後で入力可）</span></label>
                 <input type="email" id="inp-email" placeholder="tanaka@example.com" />
               </div>
               <div class="field">
@@ -791,7 +811,7 @@
       <!-- リード一覧ビュー -->
       <div class="view" id="view-leads">
         <div class="leads-header">
-          <div class="leads-stats">
+          <div class="leads-stats" style="display:flex; gap:12px; flex-wrap:wrap;">
             <div class="stat">
               <div class="stat-num" id="count-total">0</div>
               <div class="stat-label">総リード数</div>
@@ -973,7 +993,7 @@ async function analyzeLead() {
   const industries = getSelectedTags('sel-industry');
   const products = getSelectedTags('sel-product');
 
-  if (!name || !company || !email) { showToast('氏名・会社名・メールアドレスは必須です', 'error'); return; }
+  if (!name || !company) { showToast('氏名・会社名は必須です', 'error'); return; }
   if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); switchView('setup'); return; }
   if (!memo) { showToast('担当者メモを入力してください', 'error'); return; }
 
