@@ -692,6 +692,11 @@
               <input type="text" id="cfg-company" placeholder="株式会社○○" />
             </div>
             <div class="field">
+              <label>担当者名（入力者）</label>
+              <input type="text" id="cfg-staff-name" placeholder="木村 花" />
+              <div class="hint">リードに紐づけられます</div>
+            </div>
+            <div class="field">
               <label>送信者名</label>
               <input type="text" id="cfg-sender-name" placeholder="推し活EXPOブース担当" />
             </div>
@@ -735,6 +740,16 @@
 
           <div class="setup-card">
             <h3>✉️ メールテンプレート設定</h3>
+            <div class="field">
+              <label>資料URL（高スコア向け）</label>
+              <input type="text" id="cfg-doc-high" placeholder="https://drive.google.com/..." />
+              <div class="hint">詳細資料・提案書など</div>
+            </div>
+            <div class="field">
+              <label>資料URL（中・低スコア向け）</label>
+              <input type="text" id="cfg-doc-mid" placeholder="https://drive.google.com/..." />
+              <div class="hint">会社概要・サービス紹介など</div>
+            </div>
             <div class="field">
               <label>高スコア向け：件名プレフィックス</label>
               <input type="text" id="cfg-subj-high" placeholder="【ご面談のご提案】" value="【ご面談のご提案】" />
@@ -882,10 +897,14 @@
               <div class="stat-label">低スコア</div>
             </div>
           </div>
-          <div style="display:flex; gap:8px; align-items:center">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <div class="notion-badge">📓 Notion同期済み</div>
             <button class="btn btn-secondary btn-sm" id="btn-toggle-archived" onclick="toggleArchived()">◌ アーカイブ済みを表示</button>
             <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSVエクスポート</button>
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
+              📥 CSVインポート
+              <input type="file" accept=".csv" onchange="importCSV(event)" style="display:none;" />
+            </label>
           </div>
         </div>
         <div id="leads-cards">
@@ -960,6 +979,15 @@
   </div>
 </div>
 
+<!-- Import Modal -->
+<div class="lead-detail-modal" id="import-modal">
+  <div class="lead-detail-modal-header">
+    <h2>CSVインポート</h2>
+    <button class="lead-detail-close" onclick="closeImportModal()">✕ 閉じる</button>
+  </div>
+  <div id="import-preview"></div>
+</div>
+
 <!-- Lead Detail Modal -->
 <div class="lead-detail-modal" id="lead-detail-modal">
   <div class="lead-detail-modal-header">
@@ -983,12 +1011,15 @@ let currentResult = null;
 function init() {
   if (cfg['cfg-claude']) document.getElementById('cfg-claude').value = cfg['cfg-claude'];
   if (cfg['cfg-company']) document.getElementById('cfg-company').value = cfg['cfg-company'];
+  if (cfg['cfg-staff-name']) document.getElementById('cfg-staff-name').value = cfg['cfg-staff-name'];
   if (cfg['cfg-sender-name']) document.getElementById('cfg-sender-name').value = cfg['cfg-sender-name'];
   if (cfg['cfg-from-email']) document.getElementById('cfg-from-email').value = cfg['cfg-from-email'];
   if (cfg['cfg-ms-token']) document.getElementById('cfg-ms-token').value = cfg['cfg-ms-token'];
   if (cfg['cfg-notion-token']) document.getElementById('cfg-notion-token').value = cfg['cfg-notion-token'];
   if (cfg['cfg-notion-db']) document.getElementById('cfg-notion-db').value = cfg['cfg-notion-db'];
   if (cfg['cfg-gas-url']) document.getElementById('cfg-gas-url').value = cfg['cfg-gas-url'];
+  if (cfg['cfg-doc-high']) document.getElementById('cfg-doc-high').value = cfg['cfg-doc-high'];
+  if (cfg['cfg-doc-mid']) document.getElementById('cfg-doc-mid').value = cfg['cfg-doc-mid'];
   if (cfg['cfg-subj-high']) document.getElementById('cfg-subj-high').value = cfg['cfg-subj-high'];
   if (cfg['cfg-subj-mid']) document.getElementById('cfg-subj-mid').value = cfg['cfg-subj-mid'];
   if (cfg['cfg-subj-low']) document.getElementById('cfg-subj-low').value = cfg['cfg-subj-low'];
@@ -1008,7 +1039,7 @@ function switchView(v) {
 
 // --- Config ---
 function saveConfig() {
-  const keys = ['cfg-claude','cfg-company','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
+  const keys = ['cfg-claude','cfg-company','cfg-staff-name','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-doc-high','cfg-doc-mid','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
   keys.forEach(k => { cfg[k] = document.getElementById(k).value; });
   localStorage.setItem('expo_cfg', JSON.stringify(cfg));
   showToast('設定を保存しました', 'success');
@@ -1073,6 +1104,8 @@ async function analyzeLead() {
 ## 送信者情報
 - 送信者名：${senderName}（${companyName}）
 - 自社プロダクト：AR（拡張現実）、Wトリガー（二次元コード連動）、OLA（オンラインアクティベーション）
+- 高スコア向け資料URL：${cfg['cfg-doc-high'] ? cfg['cfg-doc-high'] : 'なし'}
+- 中・低スコア向け資料URL：${cfg['cfg-doc-mid'] ? cfg['cfg-doc-mid'] : 'なし'}
 
 ## スコア基準
 - HIGH（高）：具体的な検討段階、予算感あり、意思決定者に近い、短期での商談可能性が高い
@@ -1083,6 +1116,7 @@ async function analyzeLead() {
 - 相手の業界・リード種別・興味プロダクトに合わせてパーソナライズすること
 - 競合調査の場合はナーチャリング的な内容にすること
 - 興味プロダクトがある場合はそのプロダクトに触れること
+- 資料URLがある場合は本文中に自然に組み込むこと（高スコアには高スコア向け、それ以外は中・低向けを使用）
 
 ## 件名プレフィックス
 - HIGH：${subjHigh}
@@ -1158,6 +1192,7 @@ async function saveOnly() {
     company: currentResult.company,
     email: currentResult.email,
     role: currentResult.role || '',
+    staff_name: cfg['cfg-staff-name'] || '',
     lead_types: (currentResult.leadTypes || []).join('、'),
     industries: (currentResult.industries || []).join('、'),
     products: (currentResult.products || []).join('、'),
@@ -1195,6 +1230,7 @@ async function saveOnly() {
   // 3) Save locally always
   const lead = {
     ...currentResult,
+    staffName: cfg['cfg-staff-name'] || '',
     emailSent: false,
     notionSaved,
     gasSaved,
@@ -1326,7 +1362,7 @@ function updateLeadsList() {
       ${tags.length ? `<div class="lead-card-tags">${tags.map(t=>`<span class="lead-card-tag">${t}</span>`).join('')}</div>` : ''}
       <div class="lead-card-memo">${l.memo || '—'}</div>
       <div class="lead-card-footer">
-        <div class="lead-card-time">${dtStr}</div>
+        <div class="lead-card-time">${dtStr}${l.staffName ? " · " + l.staffName : ""}</div>
         <div class="lead-card-actions">${emailBtn}${archiveBtn}</div>
       </div>
     </div>`;
@@ -1526,6 +1562,8 @@ async function regenerateAI(idx) {
 ## 送信者情報
 - 送信者名：${senderName}（${companyName}）
 - 自社プロダクト：AR、Wトリガー、OLA
+- 高スコア向け資料URL：${cfg['cfg-doc-high'] ? cfg['cfg-doc-high'] : 'なし'}
+- 中・低スコア向け資料URL：${cfg['cfg-doc-mid'] ? cfg['cfg-doc-mid'] : 'なし'}
 
 ## スコア基準
 - HIGH：具体的な検討段階、予算感あり、短期での商談可能性が高い
@@ -1592,12 +1630,158 @@ function saveDetailEdits(idx) {
   showToast('編集を保存しました', 'success');
 }
 
+// --- CSV Import ---
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result.replace(/^﻿/, '');
+    const lines = text.split('
+').filter(l => l.trim());
+    if (lines.length < 2) { showToast('データがありません', 'error'); return; }
+
+    const headers = parseCSVLine(lines[0]);
+    const rows = lines.slice(1).map(l => {
+      const vals = parseCSVLine(l);
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = vals[i] || '');
+      return obj;
+    }).filter(r => r['氏名'] || r['name']);
+
+    // 重複チェック
+    const results = rows.map(row => {
+      const name = row['氏名'] || row['name'] || '';
+      const company = row['会社名'] || row['company'] || '';
+      const email = row['メール'] || row['email'] || '';
+      
+      let dupIdx = -1;
+      if (email) dupIdx = leads.findIndex(l => l.email && l.email === email);
+      if (dupIdx === -1) dupIdx = leads.findIndex(l => l.name === name && l.company === company);
+      
+      return { row, name, company, email, dupIdx, action: dupIdx >= 0 ? 'skip' : 'import' };
+    });
+
+    showImportPreview(results);
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (line[i] === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else {
+      current += line[i];
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function showImportPreview(results) {
+  const dupCount = results.filter(r => r.dupIdx >= 0).length;
+  const newCount = results.filter(r => r.dupIdx < 0).length;
+
+  document.getElementById('import-preview').innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div class="detail-box" style="margin-bottom:12px;">
+        📊 合計 ${results.length} 件 ／ 新規 <span style="color:var(--high)">${newCount} 件</span> ／ 重複 <span style="color:var(--mid)">${dupCount} 件</span>
+      </div>
+      ${dupCount > 0 ? `
+      <div style="margin-bottom:12px; font-size:13px; color:var(--text2);">重複データの処理方法を選んでください：</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+        <button class="btn btn-secondary btn-sm" onclick="setAllDupAction(results_data, 'skip')">すべてスキップ</button>
+        <button class="btn btn-secondary btn-sm" onclick="setAllDupAction(results_data, 'overwrite')">すべて上書き</button>
+        <button class="btn btn-secondary btn-sm" onclick="setAllDupAction(results_data, 'keep')">すべて別で追加</button>
+      </div>` : ''}
+    </div>
+    <div style="margin-bottom:16px;">
+      ${results.map((r, i) => `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:500;font-size:13px;">${r.name} / ${r.company}</div>
+              <div style="font-size:11px;color:var(--text3);">${r.email || 'メールなし'}</div>
+            </div>
+            ${r.dupIdx >= 0 ? `
+              <select onchange="results_data[${i}].action=this.value" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:4px 8px;color:var(--text);font-size:12px;font-family:inherit;">
+                <option value="skip">スキップ</option>
+                <option value="overwrite">上書き</option>
+                <option value="keep">別で追加</option>
+              </select>
+            ` : `<span style="font-size:11px;color:var(--high);">✦ 新規</span>`}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn btn-primary" onclick="executeImport()">📥 インポート実行</button>
+  `;
+
+  window.results_data = results;
+  document.getElementById('import-modal').classList.add('show');
+}
+
+function setAllDupAction(results, action) {
+  results.forEach((r, i) => {
+    if (r.dupIdx >= 0) {
+      r.action = action;
+      const selects = document.getElementById('import-preview').querySelectorAll('select');
+      if (selects[i]) selects[i].value = action;
+    }
+  });
+}
+
+function executeImport() {
+  let imported = 0, skipped = 0, overwritten = 0;
+  window.results_data.forEach(r => {
+    const newLead = {
+      name: r.row['氏名'] || r.row['name'] || '',
+      company: r.row['会社名'] || r.row['company'] || '',
+      email: r.row['メール'] || r.row['email'] || '',
+      role: r.row['役職'] || r.row['role'] || '',
+      staffName: r.row['担当者'] || r.row['staff_name'] || '',
+      score: r.row['スコア'] || r.row['score'] || 'LOW',
+      memo: r.row['担当者メモ'] || r.row['memo'] || '',
+      reason: r.row['AIコメント'] || r.row['ai_comment'] || '',
+      subject: r.row['件名'] || r.row['email_subject'] || '',
+      body: r.row['本文'] || r.row['email_body'] || '',
+      emailSent: false,
+      timestamp: r.row['登録日時'] || r.row['timestamp'] || new Date().toISOString()
+    };
+
+    if (r.dupIdx < 0 || r.action === 'keep') {
+      leads.unshift(newLead); imported++;
+    } else if (r.action === 'overwrite') {
+      leads[r.dupIdx] = { ...leads[r.dupIdx], ...newLead }; overwritten++;
+    } else {
+      skipped++;
+    }
+  });
+
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  updateLeadsList();
+  closeImportModal();
+  showToast(`インポート完了：新規${imported}件 上書き${overwritten}件 スキップ${skipped}件`, 'success');
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('show');
+}
+
 // --- CSV Export ---
 function exportCSV() {
   if (!leads.length) { showToast('エクスポートするデータがありません', 'error'); return; }
-  const headers = ['氏名','会社名','メール','役職','スコア','AIコメント','件名','メモ','メール送信','登録日時'];
+  const headers = ['氏名','会社名','メール','役職','担当者','スコア','AIコメント','件名','本文','メモ','メール送信','登録日時'];
   const rows = leads.map(l => [
-    l.name, l.company, l.email, l.role||'', l.score, l.reason||'', l.subject||'', l.memo,
+    l.name, l.company, l.email||'', l.role||'', l.staffName||'', l.score, l.reason||'', l.subject||'', l.body||'', l.memo,
     l.emailSent ? '済み' : '未', new Date(l.timestamp).toLocaleString('ja-JP')
   ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
   const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
