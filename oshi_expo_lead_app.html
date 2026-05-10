@@ -1421,23 +1421,32 @@ function showLeadDetail(idx) {
     </div>
     ${tags.length ? `<div class="detail-section"><div class="detail-label">タグ</div><div class="lead-card-tags">${tags.map(t=>`<span class="lead-card-tag">${t}</span>`).join('')}</div></div>` : ''}
     <div class="detail-section">
-      <div class="detail-label">担当者メモ</div>
+      <div class="detail-label">担当者メモ（展示会当日）</div>
       <div class="detail-box">${l.memo || '—'}</div>
     </div>
     <div class="detail-section">
+      <div class="detail-label">追記メモ（後から追加）</div>
+      <textarea id="detail-extra-memo" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none;min-height:80px;line-height:1.8;resize:vertical;" placeholder="後から気づいたこと、追加情報など...">${l.extraMemo || ''}</textarea>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="saveExtraMemo(${idx})">💾 追記を保存</button>
+        <button class="btn btn-secondary btn-sm" onclick="regenerateAI(${idx})" style="color:var(--accent)">🔄 AIコメント再生成</button>
+      </div>
+    </div>
+    <div class="detail-section">
       <div class="detail-label">AI分析コメント</div>
-      <div class="detail-box">${l.reason || '—'}</div>
+      <div class="detail-box" id="detail-ai-comment">${l.reason || '—'}</div>
     </div>
     <div class="detail-section">
-      <div class="detail-label">メール件名</div>
-      <div class="detail-box">${l.subject || '—'}</div>
+      <div class="detail-label">メール件名（編集可）</div>
+      <input type="text" id="detail-edit-subject" value="${(l.subject||'').replace(/"/g,'&quot;')}" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none;" />
     </div>
     <div class="detail-section">
-      <div class="detail-label">メール本文</div>
-      <div class="detail-box" style="white-space:pre-wrap">${l.body || '—'}</div>
+      <div class="detail-label">メール本文（編集可）</div>
+      <textarea id="detail-edit-body" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none;min-height:200px;line-height:1.8;resize:vertical;">${l.body || ''}</textarea>
     </div>
     <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap">
-      ${!l.emailSent ? `<button class="btn btn-primary" onclick="sendEmail(${idx});closeLeadDetail()">📧 メール送信</button>` : ''}
+      <button class="btn btn-secondary" onclick="saveDetailEdits(${idx})">💾 編集を保存</button>
+      ${!l.emailSent ? `<button class="btn btn-primary" onclick="saveDetailEdits(${idx});sendEmail(${idx});closeLeadDetail()">📧 メール送信</button>` : ''}
       ${!l.archived ? `<button class="btn btn-secondary" onclick="archiveLead(${idx});closeLeadDetail()">アーカイブ</button>` : `<button class="btn btn-secondary" onclick="restoreLead(${idx});closeLeadDetail()">復元</button>`}
     </div>
   `;
@@ -1445,6 +1454,113 @@ function showLeadDetail(idx) {
 }
 function closeLeadDetail() {
   document.getElementById('lead-detail-modal').classList.remove('show');
+}
+function saveExtraMemo(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  const extraMemo = document.getElementById('detail-extra-memo').value;
+  leads[actualIdx].extraMemo = extraMemo;
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  showToast('追記メモを保存しました', 'success');
+}
+
+async function regenerateAI(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  const l = leads[actualIdx];
+  const extraMemo = document.getElementById('detail-extra-memo').value;
+
+  if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); return; }
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 再生成中...';
+
+  const companyName = cfg['cfg-company'] || '私ども';
+  const senderName = cfg['cfg-sender-name'] || '担当者';
+  const subjHigh = cfg['cfg-subj-high'] || '【ご面談のご提案】';
+  const subjMid = cfg['cfg-subj-mid'] || '【資料のご送付】';
+  const subjLow = cfg['cfg-subj-low'] || '【ご来場御礼】';
+
+  const prompt = `あなたは展示会のリードスコアリングと営業フォローメール作成の専門家です。
+
+以下のリード情報を再分析して、スコアリングとフォローメールを更新してください。
+
+## リード情報
+- 氏名：${l.name}
+- 会社：${l.company}
+- 役職：${l.role || '不明'}
+- リード種別：${(l.leadTypes||[]).join('、') || '未選択'}
+- 業界：${(l.industries||[]).join('、') || '未選択'}
+- 興味プロダクト：${(l.products||[]).join('、') || '未選択'}
+- 展示会当日のメモ：${l.memo}
+- 追記メモ：${extraMemo || 'なし'}
+
+## 送信者情報
+- 送信者名：${senderName}（${companyName}）
+- 自社プロダクト：AR、Wトリガー、OLA
+
+## スコア基準
+- HIGH：具体的な検討段階、予算感あり、短期での商談可能性が高い
+- MID：興味はあるが検討初期、3〜6ヶ月以内の可能性
+- LOW：情報収集段階、長期的なナーチャリングが必要
+
+## 件名プレフィックス
+- HIGH：${subjHigh}
+- MID：${subjMid}
+- LOW：${subjLow}
+
+## 出力形式（JSONのみ）
+{
+  "score": "HIGH" または "MID" または "LOW",
+  "reason": "スコアの理由を2〜3文で",
+  "subject": "メール件名",
+  "body": "フォローメール本文（${l.name}様宛、署名は${senderName}）"
+}`;
+
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: cfg['cfg-claude'],
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.map(i => i.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    leads[actualIdx].score = result.score;
+    leads[actualIdx].reason = result.reason;
+    leads[actualIdx].subject = result.subject;
+    leads[actualIdx].body = result.body;
+    leads[actualIdx].extraMemo = extraMemo;
+    localStorage.setItem('expo_leads', JSON.stringify(leads));
+
+    // 画面更新
+    document.getElementById('detail-ai-comment').textContent = result.reason;
+    document.getElementById('detail-edit-subject').value = result.subject;
+    document.getElementById('detail-edit-body').value = result.body;
+    updateLeadsList();
+    showToast('AIコメントを再生成しました', 'success');
+  } catch(e) {
+    showToast('再生成に失敗しました', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 AIコメント再生成';
+  }
+}
+
+function saveDetailEdits(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  const subject = document.getElementById('detail-edit-subject').value;
+  const body = document.getElementById('detail-edit-body').value;
+  leads[actualIdx].subject = subject;
+  leads[actualIdx].body = body;
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  showToast('編集を保存しました', 'success');
 }
 
 // --- CSV Export ---
