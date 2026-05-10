@@ -1412,12 +1412,29 @@ function showLeadDetail(idx) {
       </div>
     </div>
     <div class="detail-section">
-      <div class="detail-label">基本情報</div>
-      <div class="detail-box">
-        <div>📧 ${l.email || '未入力'}</div>
-        <div>💼 ${l.role || '未入力'}</div>
-        <div>🕐 ${dt}</div>
+      <div class="detail-label">基本情報（編集可）</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">氏名</div>
+          <input id="detail-edit-name" type="text" value="${(l.name||'').replace(/"/g,'&quot;')}" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;" />
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">会社名</div>
+          <input id="detail-edit-company" type="text" value="${(l.company||'').replace(/"/g,'&quot;')}" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;" />
+        </div>
       </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">メールアドレス</div>
+          <input id="detail-edit-email" type="email" value="${(l.email||'').replace(/"/g,'&quot;')}" placeholder="未入力" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;" />
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">役職・部署</div>
+          <input id="detail-edit-role" type="text" value="${(l.role||'').replace(/"/g,'&quot;')}" placeholder="未入力" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;" />
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);">🕐 ${dt}</div>
+      <button class="btn btn-secondary btn-sm" onclick="saveBasicInfo(${idx})" style="margin-top:8px;">💾 基本情報を保存</button>
     </div>
     ${tags.length ? `<div class="detail-section"><div class="detail-label">タグ</div><div class="lead-card-tags">${tags.map(t=>`<span class="lead-card-tag">${t}</span>`).join('')}</div></div>` : ''}
     <div class="detail-section">
@@ -1455,6 +1472,18 @@ function showLeadDetail(idx) {
 function closeLeadDetail() {
   document.getElementById('lead-detail-modal').classList.remove('show');
 }
+function saveBasicInfo(idx) {
+  const actualIdx = getFilteredLeads()[idx].originalIdx;
+  leads[actualIdx].name = document.getElementById('detail-edit-name').value;
+  leads[actualIdx].company = document.getElementById('detail-edit-company').value;
+  leads[actualIdx].email = document.getElementById('detail-edit-email').value;
+  leads[actualIdx].role = document.getElementById('detail-edit-role').value;
+  localStorage.setItem('expo_leads', JSON.stringify(leads));
+  document.getElementById('detail-name').textContent = leads[actualIdx].name + '　' + leads[actualIdx].company;
+  updateLeadsList();
+  showToast('基本情報を保存しました', 'success');
+}
+
 function saveExtraMemo(idx) {
   const actualIdx = getFilteredLeads()[idx].originalIdx;
   const extraMemo = document.getElementById('detail-extra-memo').value;
