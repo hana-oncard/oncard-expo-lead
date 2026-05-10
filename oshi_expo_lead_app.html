@@ -424,7 +424,7 @@ async function saveOnly() {
 
   var notionSaved = false, gasSaved = false;
   try { var mr = await fetch('https://hook.us2.make.com/axqqrllufqwt226ppy6jydg1ru5v2glx', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); notionSaved = mr.ok; } catch(e) {}
-  if (cfg['cfg-gas-url']) { try { var gr = await fetch(cfg['cfg-gas-url'], {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); gasSaved = gr.ok; } catch(e) {} }
+  if (cfg['cfg-gas-url']) { try { var gr = await fetch('/api/gas', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({gasUrl:cfg['cfg-gas-url']},payload))}); gasSaved = gr.ok; } catch(e) {} }
 
   var lead = Object.assign({}, currentResult, {staffName:cfg['cfg-staff-name']||'', emailSent:false, notionSaved:notionSaved, gasSaved:gasSaved, timestamp:new Date().toISOString()});
   leads.unshift(lead);
