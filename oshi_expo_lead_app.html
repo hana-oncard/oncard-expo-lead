@@ -927,6 +927,113 @@ async function transcribeAudio() {
   reader.readAsDataURL(recordedBlob);
 }
 
+// --- Google Drive Integration ---
+var gdriveAccessToken = null;
+var currentDriveLink = null;
+
+function connectGoogleDrive() {
+  var clientId = cfg['cfg-gdrive-client-id'];
+  var el = g('cfg-gdrive-client-id');
+  if (!clientId && el) clientId = el.value;
+  if (!clientId) { showToast('クライアントIDを入力して設定を保存してください', 'error'); return; }
+
+  localStorage.setItem('gdrive_pre_auth_view', 'setup');
+  var scope = 'https://www.googleapis.com/auth/drive.file';
+  var redirectUri = window.location.origin + window.location.pathname;
+  var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+    '?client_id=' + encodeURIComponent(clientId) +
+    '&redirect_uri=' + encodeURIComponent(redirectUri) +
+    '&response_type=token' +
+    '&scope=' + encodeURIComponent(scope);
+  window.location.href = authUrl;
+}
+
+function checkGdriveCallback() {
+  var hash = window.location.hash;
+  if (hash && hash.indexOf('access_token') >= 0) {
+    var params = new URLSearchParams(hash.substring(1));
+    gdriveAccessToken = params.get('access_token');
+    localStorage.setItem('gdrive_token', gdriveAccessToken);
+    history.replaceState(null, '', window.location.pathname);
+    var st = g('gdrive-status');
+    if (st) { st.textContent = '✓ Google Driveに接続済み'; st.style.color = 'var(--high)'; }
+    showToast('Google Driveに接続しました！', 'success');
+    switchView('setup');
+  }
+}
+
+async function uploadToDrive() {
+  if (!recordedBlob) { showToast('録音データがありません', 'error'); return; }
+  if (!gdriveAccessToken) { gdriveAccessToken = localStorage.getItem('gdrive_token'); }
+  if (!gdriveAccessToken) { showToast('先に設定からGoogle Driveに接続してください', 'error'); switchView('setup'); return; }
+
+  var btn = g('btn-upload-drive');
+  var status = g('upload-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> アップロード中...';
+  status.style.display = 'block';
+  status.textContent = 'Google Driveにアップロード中...';
+
+  try {
+    var name = getVal('inp-name') || 'unknown';
+    var now = new Date();
+    var dateStr = (now.getMonth()+1) + '' + now.getDate() + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+    var fileName = name + '_' + dateStr + '.webm';
+    var folderName = cfg['cfg-gdrive-folder'] || '推し活EXPO録音';
+    var folderId = await getOrCreateFolder(folderName);
+
+    var metadata = { name: fileName, parents: folderId ? [folderId] : [] };
+    var form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', recordedBlob, fileName);
+
+    var res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken },
+      body: form
+    });
+
+    if (res.status === 401) {
+      gdriveAccessToken = null;
+      localStorage.removeItem('gdrive_token');
+      showToast('認証切れです。設定からDriveに再接続してください', 'error');
+      btn.disabled = false; btn.innerHTML = '☁️ Driveに保存';
+      return;
+    }
+
+    var data = await res.json();
+    if (data.id) {
+      currentDriveLink = data.webViewLink;
+      status.textContent = '✓ 保存完了：' + fileName;
+      status.style.color = 'var(--high)';
+      showToast('Google Driveに保存しました！', 'success');
+      btn.innerHTML = '✓ 保存済み';
+    }
+  } catch(e) {
+    status.textContent = 'アップロードに失敗しました';
+    status.style.color = 'var(--red)';
+    showToast('アップロードに失敗しました', 'error');
+    btn.disabled = false; btn.innerHTML = '☁️ Driveに保存';
+  }
+}
+
+async function getOrCreateFolder(folderName) {
+  try {
+    var searchRes = await fetch("https://www.googleapis.com/drive/v3/files?q=name='" + folderName + "'+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id)", {
+      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken }
+    });
+    var searchData = await searchRes.json();
+    if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+    var createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    var createData = await createRes.json();
+    return createData.id;
+  } catch(e) { return null; }
+}
+
 function showToast(msg, type) {
   var t = g('toast'); t.textContent = msg; t.className = 'toast show '+(type||'');
   clearTimeout(t._timer); t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3500);
