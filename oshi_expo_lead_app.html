@@ -951,14 +951,28 @@ function connectGoogleDrive() {
 function checkGdriveCallback() {
   var hash = window.location.hash;
   if (hash && hash.indexOf('access_token') >= 0) {
-    var params = new URLSearchParams(hash.substring(1));
-    gdriveAccessToken = params.get('access_token');
-    localStorage.setItem('gdrive_token', gdriveAccessToken);
-    history.replaceState(null, '', window.location.pathname);
-    var st = g('gdrive-status');
-    if (st) { st.textContent = '✓ Google Driveに接続済み'; st.style.color = 'var(--high)'; }
-    showToast('Google Driveに接続しました！', 'success');
-    switchView('setup');
+    // #iss=...&access_token=... の形式に対応
+    var hashStr = hash.substring(1);
+    var params = new URLSearchParams(hashStr);
+    var token = params.get('access_token');
+    if (!token) {
+      // 別の区切り方を試す
+      var parts = hashStr.split('&');
+      parts.forEach(function(part) {
+        if (part.indexOf('access_token=') === 0) {
+          token = part.substring('access_token='.length);
+        }
+      });
+    }
+    if (token) {
+      gdriveAccessToken = token;
+      localStorage.setItem('gdrive_token', gdriveAccessToken);
+      history.replaceState(null, '', window.location.pathname);
+      var st = g('gdrive-status');
+      if (st) { st.textContent = '✓ Google Driveに接続済み'; st.style.color = 'var(--high)'; }
+      showToast('Google Driveに接続しました！', 'success');
+      switchView('setup');
+    }
   }
 }
 
