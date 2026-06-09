@@ -372,6 +372,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
           </div>
         </div>
         <button class="btn btn-primary" onclick="saveConfig()">💾 設定を保存</button>
+        <button class="btn btn-secondary" onclick="logout()" style="margin-left:10px;">🔒 ログアウト</button>
         <div style="margin-top:12px;font-size:12px;color:var(--text3)">設定はブラウザに保存されます</div>
       </div>
 
@@ -915,6 +916,13 @@ function showToast(msg, type) {
 
 // --- Password ---
 var CORRECT_PASSWORD = 'oncard2026';
+function logout() {
+  localStorage.removeItem('expo_auth');
+  document.getElementById('pw-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-error').style.display = 'none';
+}
 function checkPassword() {
   var input = document.getElementById('pw-input').value;
   if (input === CORRECT_PASSWORD) {
