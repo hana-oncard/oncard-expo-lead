@@ -163,10 +163,25 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
       <div class="view active" id="view-input">
         <div style="max-width:680px">
           <div class="card">
+            <div class="card-title">📷 名刺スキャン・音声録音</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+              <label class="btn btn-secondary" style="cursor:pointer;">
+                📷 名刺を撮影・選択
+                <input type="file" id="inp-card-img" accept="image/*" capture="environment" onchange="scanBusinessCard(event)" style="display:none;" />
+              </label>
+              <button class="btn btn-secondary" id="btn-record" onclick="toggleRecording()">🎤 録音開始</button>
+              <button class="btn btn-secondary btn-sm" id="btn-transcribe" onclick="transcribeAudio()" style="display:none;">📝 文字起こし</button>
+            </div>
+            <div id="scan-status" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></div>
+            <div id="record-status" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;">● 録音中...</div>
+            <audio id="audio-preview" controls style="width:100%;margin-bottom:8px;display:none;"></audio>
+          </div>
+
+          <div class="card">
             <div class="card-title">基本情報</div>
             <div class="form-row">
               <div class="field"><label>氏名 <span style="color:var(--red)">*</span></label><input type="text" id="inp-name" placeholder="田中 太郎" /></div>
-              <div class="field"><label>会社名 <span style="color:var(--red)">*</span></label><input type="text" id="inp-company" placeholder="株式会社○○" /></div>
+              <div class="field"><label>会社名</label><input type="text" id="inp-company" placeholder="株式会社○○" /></div>
             </div>
             <div class="form-row">
               <div class="field"><label>メールアドレス <span style="font-size:11px;color:var(--text3)">（後で入力可）</span></label><input type="email" id="inp-email" placeholder="tanaka@example.com" /></div>
@@ -203,6 +218,52 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
                 <button class="tag-btn" onclick="toggleTag(this)">AR</button>
                 <button class="tag-btn" onclick="toggleTag(this)">Wトリガー</button>
                 <button class="tag-btn" onclick="toggleTag(this)">OLA</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">来場目的・行動記録</div>
+            <div class="field">
+              <label>推し活EXPO来場目的（複数選択可）</label>
+              <div class="tag-selector" id="sel-expo-purpose">
+                <button class="tag-btn" onclick="toggleTag(this)">グッズ既に展開中</button>
+                <button class="tag-btn" onclick="toggleTag(this)">グッズをこれから作りたい</button>
+                <button class="tag-btn" onclick="toggleTag(this)">推し活EXPOがどんなものか見に来た</button>
+                <button class="tag-btn" onclick="toggleTag(this)">新しいサービスを探しに来た</button>
+                <button class="tag-btn" onclick="toggleTag(this)">他の展示のついでに立ち寄った</button>
+                <button class="tag-btn" onclick="toggleTag(this)">グッズ展開に課題がある</button>
+                <button class="tag-btn" onclick="toggleTag(this)">イベント集客・活用を検討</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>うちのブースへの来場目的（複数選択可）</label>
+              <div class="tag-selector" id="sel-booth-purpose">
+                <button class="tag-btn" onclick="toggleTag(this)">ONCARDを知っていた</button>
+                <button class="tag-btn" onclick="toggleTag(this)">看板・ビジュアルに惹かれた</button>
+                <button class="tag-btn" onclick="toggleTag(this)">スタッフに声をかけられた</button>
+                <button class="tag-btn" onclick="toggleTag(this)">通りすがり</button>
+                <button class="tag-btn" onclick="toggleTag(this)">知人・紹介</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>行動記録（複数選択可）</label>
+              <div class="tag-selector" id="sel-actions">
+                <button class="tag-btn" onclick="toggleTag(this)">AR名刺QRをかざした</button>
+                <button class="tag-btn" onclick="toggleTag(this)">WトリガーQRをかざした</button>
+                <button class="tag-btn" onclick="toggleTag(this)">OLA QRをかざした</button>
+                <button class="tag-btn" onclick="toggleTag(this)">デモ体験した</button>
+                <button class="tag-btn" onclick="toggleTag(this)">資料受け取った</button>
+                <button class="tag-btn" onclick="toggleTag(this)">名刺交換のみ</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>足を止めたフック（複数選択可）</label>
+              <div class="tag-selector" id="sel-hooks">
+                <button class="tag-btn" onclick="toggleTag(this)">看板・ビジュアル</button>
+                <button class="tag-btn" onclick="toggleTag(this)">デモ映像</button>
+                <button class="tag-btn" onclick="toggleTag(this)">スタッフの声かけ</button>
+                <button class="tag-btn" onclick="toggleTag(this)">通りすがり</button>
               </div>
             </div>
           </div>
@@ -378,7 +439,7 @@ function g(id) { return document.getElementById(id); }
 async function analyzeLead() {
   var name = getVal('inp-name'), company = getVal('inp-company'), email = getVal('inp-email'), memo = getVal('inp-memo');
   var leadTypes = getSelectedTags('sel-lead-type'), industries = getSelectedTags('sel-industry'), products = getSelectedTags('sel-product');
-  if (!name || !company) { showToast('氏名・会社名は必須です', 'error'); return; }
+  if (!name) { showToast('氏名は必須です', 'error'); return; }
   if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); switchView('setup'); return; }
   if (!memo) { showToast('担当者メモを入力してください', 'error'); return; }
 
@@ -397,7 +458,7 @@ async function analyzeLead() {
     var data = await res.json();
     var text = data.content.map(function(i){ return i.text||''; }).join('');
     var result = JSON.parse(text.replace(/```json|```/g,'').trim());
-    currentResult = Object.assign({}, result, {name:name, company:company, email:email, role:getVal('inp-role'), memo:memo, leadTypes:leadTypes, industries:industries, products:products});
+    currentResult = Object.assign({}, result, {name:name, company:company, email:email, role:getVal('inp-role'), memo:memo, leadTypes:leadTypes, industries:industries, products:products, expoPurpose:expoPurpose, boothPurpose:boothPurpose, actions:actions, hooks:hooks});
     showResult(result);
   } catch(e) { showToast('AI分析に失敗しました。APIキーを確認してください。', 'error'); }
   finally { btn.disabled = false; btn.innerHTML = '✦ AIでスコアリング＆メール生成'; }
@@ -453,6 +514,10 @@ function clearForm() {
   ['inp-name','inp-company','inp-email','inp-role','inp-memo'].forEach(function(id){ var el=g(id); if(el) el.value=''; });
   document.querySelectorAll('.score-btn').forEach(function(b){ b.classList.remove('selected'); });
   document.querySelectorAll('.tag-btn').forEach(function(b){ b.classList.remove('selected'); });
+  var audioPreview = g('audio-preview'); if(audioPreview) { audioPreview.style.display='none'; audioPreview.src=''; }
+  var transcribeBtn = g('btn-transcribe'); if(transcribeBtn) transcribeBtn.style.display='none';
+  var scanStatus = g('scan-status'); if(scanStatus) scanStatus.style.display='none';
+  recordedBlob = null;
   currentScore = null; currentResult = null;
   g('ai-result').classList.remove('show');
 }
@@ -701,6 +766,136 @@ function executeImport() {
 }
 
 function closeImport() { g('import-modal').classList.remove('show'); }
+
+// --- Business Card Scan ---
+async function scanBusinessCard(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); return; }
+
+  var status = g('scan-status');
+  status.style.display = 'block';
+  status.textContent = '📷 名刺を読み取り中...';
+
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    var base64 = e.target.result.split(',')[1];
+    var mimeType = file.type || 'image/jpeg';
+    try {
+      var res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: cfg['cfg-claude'],
+          model: 'claude-sonnet-4-5',
+          max_tokens: 500,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+              { type: 'text', text: 'この名刺から情報を読み取ってJSONのみで返してください。{"name":"氏名","company":"会社名","role":"役職","email":"メールアドレス","phone":"電話番号"}' }
+            ]
+          }]
+        })
+      });
+      var data = await res.json();
+      var text = data.content.map(function(i){ return i.text||''; }).join('');
+      var info = JSON.parse(text.replace(/```json|```/g,'').trim());
+      if (info.name) g('inp-name').value = info.name;
+      if (info.company) g('inp-company').value = info.company;
+      if (info.role) g('inp-role').value = info.role;
+      if (info.email) g('inp-email').value = info.email;
+      status.textContent = '✓ 名刺の読み取り完了！内容を確認してください。';
+      status.style.color = 'var(--high)';
+    } catch(e) {
+      status.textContent = '読み取りに失敗しました。手動で入力してください。';
+      status.style.color = 'var(--red)';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// --- Voice Recording ---
+var mediaRecorder = null;
+var recordedChunks = [];
+var recordedBlob = null;
+var isRecording = false;
+
+async function toggleRecording() {
+  var btn = g('btn-record');
+  var status = g('record-status');
+  if (!isRecording) {
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = function() {
+        recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+        var url = URL.createObjectURL(recordedBlob);
+        var audio = g('audio-preview');
+        audio.src = url;
+        audio.style.display = 'block';
+        g('btn-transcribe').style.display = 'inline-flex';
+        stream.getTracks().forEach(function(t){ t.stop(); });
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      btn.innerHTML = '⏹ 録音停止';
+      btn.style.color = 'var(--red)';
+      status.style.display = 'block';
+    } catch(e) { showToast('マイクへのアクセスが許可されていません', 'error'); }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    btn.innerHTML = '🎤 録音開始';
+    btn.style.color = '';
+    status.style.display = 'none';
+  }
+}
+
+async function transcribeAudio() {
+  if (!recordedBlob) { showToast('録音データがありません', 'error'); return; }
+  if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); return; }
+
+  var btn = g('btn-transcribe');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 文字起こし中...';
+
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    var base64 = e.target.result.split(',')[1];
+    try {
+      var res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: cfg['cfg-claude'],
+          model: 'claude-sonnet-4-5',
+          max_tokens: 800,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: '以下の音声を文字起こしして、展示会の商談メモとして要約してください。話者の情報・興味ポイント・課題・次のステップなどを簡潔にまとめてください。JSONのみで返してください：{"transcription":"要約されたメモ"}' },
+              { type: 'document', source: { type: 'base64', media_type: 'audio/webm', data: base64 } }
+            ]
+          }]
+        })
+      });
+      var data = await res.json();
+      var text = data.content.map(function(i){ return i.text||''; }).join('');
+      // Claudeは音声を直接処理できないのでテキスト入力を促す
+      showToast('音声ファイルをテキストで入力してください', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '📝 文字起こし';
+    } catch(e) {
+      showToast('文字起こしに失敗しました', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '📝 文字起こし';
+    }
+  };
+  reader.readAsDataURL(recordedBlob);
+}
 
 function showToast(msg, type) {
   var t = g('toast'); t.textContent = msg; t.className = 'toast show '+(type||'');
