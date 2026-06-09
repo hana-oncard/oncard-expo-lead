@@ -141,7 +141,17 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 </style>
 </head>
 <body>
-<div class="app">
+<div id="pw-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;width:320px;text-align:center;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:var(--accent);text-transform:uppercase;margin-bottom:8px;">推し活EXPO</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">Lead Management System</div>
+    <input type="password" id="pw-input" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')checkPassword()" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:12px;text-align:center;" />
+    <button onclick="checkPassword()" class="btn btn-primary" style="width:100%;justify-content:center;">入室する</button>
+    <div id="pw-error" style="color:var(--red);font-size:12px;margin-top:8px;display:none;">パスワードが違います</div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none;">
   <div class="sidebar">
     <div class="logo">
       <div class="logo-text">推し活EXPO</div>
@@ -195,6 +205,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
                 <button class="tag-btn" onclick="toggleTag(this)">協業・共同開発候補</button>
                 <button class="tag-btn" onclick="toggleTag(this)">投資家・出資候補</button>
                 <button class="tag-btn" onclick="toggleTag(this)">メディア・PR候補</button>
+                <button class="tag-btn" onclick="toggleTag(this)">出展社</button>
                 <button class="tag-btn" onclick="toggleTag(this)">競合調査</button>
               </div>
             </div>
@@ -366,7 +377,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 
     </div>
   </div>
-</div>
+</div><!-- end main-app -->
 
 <!-- 詳細モーダル -->
 <div class="modal" id="detail-modal">
@@ -902,6 +913,31 @@ function showToast(msg, type) {
   clearTimeout(t._timer); t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3500);
 }
 
+// --- Password ---
+var CORRECT_PASSWORD = 'oncard2025';
+function checkPassword() {
+  var input = document.getElementById('pw-input').value;
+  if (input === CORRECT_PASSWORD) {
+    localStorage.setItem('expo_auth', '1');
+    document.getElementById('pw-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+  } else {
+    document.getElementById('pw-error').style.display = 'block';
+    document.getElementById('pw-input').value = '';
+  }
+}
+
+function checkAuth() {
+  if (localStorage.getItem('expo_auth') === '1') {
+    document.getElementById('pw-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+  } else {
+    document.getElementById('pw-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+  }
+}
+
+checkAuth();
 init();
 </script>
 </body>
