@@ -180,10 +180,11 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
                 <input type="file" id="inp-card-img" accept="image/*" capture="environment" onchange="scanBusinessCard(event)" style="display:none;" />
               </label>
               <button class="btn btn-secondary" id="btn-record" onclick="toggleRecording()">🎤 録音開始</button>
-              <button class="btn btn-secondary btn-sm" id="btn-transcribe" onclick="transcribeAudio()" style="display:none;">📝 文字起こし</button>
+              <button class="btn btn-primary btn-sm" id="btn-upload-drive" onclick="uploadToDrive()" style="display:none;">☁️ Driveに保存</button>
             </div>
             <div id="scan-status" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></div>
             <div id="record-status" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;">● 録音中...</div>
+            <div id="upload-status" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></div>
             <audio id="audio-preview" controls style="width:100%;margin-bottom:8px;display:none;"></audio>
           </div>
 
@@ -371,6 +372,20 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
             <div class="field"><label>低スコア：件名プレフィックス</label><input type="text" id="cfg-subj-low" value="【ご来場御礼】" /></div>
           </div>
         </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">🎙 Google Drive録音設定</div>
+          <div class="field">
+            <label>Google OAuthクライアントID</label>
+            <input type="text" id="cfg-gdrive-client-id" placeholder="938461340762-xxx.apps.googleusercontent.com" />
+            <div class="hint">Google Cloud ConsoleのOAuthクライアントID</div>
+          </div>
+          <div class="field">
+            <label>録音保存フォルダ名</label>
+            <input type="text" id="cfg-gdrive-folder" placeholder="推し活EXPO録音" value="推し活EXPO録音" />
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="connectGoogleDrive()">🔗 Google Driveに接続</button>
+          <div id="gdrive-status" style="font-size:12px;margin-top:8px;color:var(--text3);">未接続</div>
+        </div>
         <button class="btn btn-primary" onclick="saveConfig()">💾 設定を保存</button>
         <button class="btn btn-secondary" onclick="logout()" style="margin-left:10px;">🔒 ログアウト</button>
         <div style="margin-top:12px;font-size:12px;color:var(--text3)">設定はブラウザに保存されます</div>
@@ -407,7 +422,7 @@ var currentScore = null;
 var currentResult = null;
 var showArchived = false;
 
-var CFG_KEYS = ['cfg-claude','cfg-company','cfg-staff-name','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-doc-high','cfg-doc-mid','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
+var CFG_KEYS = ['cfg-claude','cfg-company','cfg-staff-name','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-doc-high','cfg-doc-mid','cfg-subj-high','cfg-subj-mid','cfg-subj-low','cfg-gdrive-client-id','cfg-gdrive-folder'];
 
 function init() {
   CFG_KEYS.forEach(function(k) { var el = document.getElementById(k); if (el && cfg[k]) el.value = cfg[k]; });
@@ -470,7 +485,7 @@ async function analyzeLead() {
     var data = await res.json();
     var text = data.content.map(function(i){ return i.text||''; }).join('');
     var result = JSON.parse(text.replace(/```json|```/g,'').trim());
-    currentResult = Object.assign({}, result, {name:name, company:company, email:email, role:getVal('inp-role'), memo:memo, leadTypes:leadTypes, industries:industries, products:products, expoPurpose:expoPurpose, boothPurpose:boothPurpose, actions:actions, hooks:hooks});
+    currentResult = Object.assign({}, result, {name:name, company:company, email:email, role:getVal('inp-role'), memo:memo, leadTypes:leadTypes, industries:industries, products:products, expoPurpose:expoPurpose, boothPurpose:boothPurpose, actions:actions, hooks:hooks, driveLink:currentDriveLink});
     showResult(result);
   } catch(e) { showToast('AI分析に失敗しました。APIキーを確認してください。', 'error'); }
   finally { btn.disabled = false; btn.innerHTML = '✦ AIでスコアリング＆メール生成'; }
@@ -530,6 +545,9 @@ function clearForm() {
   var transcribeBtn = g('btn-transcribe'); if(transcribeBtn) transcribeBtn.style.display='none';
   var scanStatus = g('scan-status'); if(scanStatus) scanStatus.style.display='none';
   recordedBlob = null;
+  currentDriveLink = null;
+  var uploadStatus = g('upload-status'); if(uploadStatus) { uploadStatus.style.display='none'; uploadStatus.textContent=''; }
+  var uploadBtn = g('btn-upload-drive'); if(uploadBtn) { uploadBtn.style.display='none'; uploadBtn.disabled=false; uploadBtn.innerHTML='☁️ Driveに保存'; }
   currentScore = null; currentResult = null;
   g('ai-result').classList.remove('show');
 }
@@ -848,7 +866,7 @@ async function toggleRecording() {
         var audio = g('audio-preview');
         audio.src = url;
         audio.style.display = 'block';
-        g('btn-transcribe').style.display = 'inline-flex';
+        g('btn-upload-drive').style.display = 'inline-flex';
         stream.getTracks().forEach(function(t){ t.stop(); });
       };
       mediaRecorder.start();
