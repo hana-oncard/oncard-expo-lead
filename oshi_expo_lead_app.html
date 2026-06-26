@@ -179,13 +179,8 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
                 📷 名刺を撮影・選択
                 <input type="file" id="inp-card-img" accept="image/*" capture="environment" onchange="scanBusinessCard(event)" style="display:none;" />
               </label>
-              <button class="btn btn-secondary" id="btn-record" onclick="toggleRecording()">🎤 録音開始</button>
-              <button class="btn btn-primary btn-sm" id="btn-upload-drive" onclick="uploadToDrive()" style="display:none;">☁️ Driveに保存</button>
             </div>
             <div id="scan-status" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></div>
-            <div id="record-status" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;">● 録音中...</div>
-            <div id="upload-status" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></div>
-            <audio id="audio-preview" controls style="width:100%;margin-bottom:8px;display:none;"></audio>
           </div>
 
           <div class="card">
@@ -372,20 +367,6 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
             <div class="field"><label>低スコア：件名プレフィックス</label><input type="text" id="cfg-subj-low" value="【ご来場御礼】" /></div>
           </div>
         </div>
-        <div class="card" style="margin-bottom:20px;">
-          <div class="card-title">🎙 Google Drive録音設定</div>
-          <div class="field">
-            <label>Google OAuthクライアントID</label>
-            <input type="text" id="cfg-gdrive-client-id" placeholder="938461340762-xxx.apps.googleusercontent.com" />
-            <div class="hint">Google Cloud ConsoleのOAuthクライアントID</div>
-          </div>
-          <div class="field">
-            <label>録音保存フォルダ名</label>
-            <input type="text" id="cfg-gdrive-folder" placeholder="推し活EXPO録音" value="推し活EXPO録音" />
-          </div>
-          <button class="btn btn-secondary btn-sm" onclick="connectGoogleDrive()">🔗 Google Driveに接続</button>
-          <div id="gdrive-status" style="font-size:12px;margin-top:8px;color:var(--text3);">未接続</div>
-        </div>
         <button class="btn btn-primary" onclick="saveConfig()">💾 設定を保存</button>
         <button class="btn btn-secondary" onclick="logout()" style="margin-left:10px;">🔒 ログアウト</button>
         <div style="margin-top:12px;font-size:12px;color:var(--text3)">設定はブラウザに保存されます</div>
@@ -422,7 +403,7 @@ var currentScore = null;
 var currentResult = null;
 var showArchived = false;
 
-var CFG_KEYS = ['cfg-claude','cfg-company','cfg-staff-name','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-doc-high','cfg-doc-mid','cfg-subj-high','cfg-subj-mid','cfg-subj-low','cfg-gdrive-client-id','cfg-gdrive-folder'];
+var CFG_KEYS = ['cfg-claude','cfg-company','cfg-staff-name','cfg-sender-name','cfg-from-email','cfg-ms-token','cfg-notion-token','cfg-notion-db','cfg-gas-url','cfg-doc-high','cfg-doc-mid','cfg-subj-high','cfg-subj-mid','cfg-subj-low'];
 
 function init() {
   CFG_KEYS.forEach(function(k) { var el = document.getElementById(k); if (el && cfg[k]) el.value = cfg[k]; });
@@ -544,10 +525,7 @@ function clearForm() {
   var audioPreview = g('audio-preview'); if(audioPreview) { audioPreview.style.display='none'; audioPreview.src=''; }
   var transcribeBtn = g('btn-transcribe'); if(transcribeBtn) transcribeBtn.style.display='none';
   var scanStatus = g('scan-status'); if(scanStatus) scanStatus.style.display='none';
-  recordedBlob = null;
-  currentDriveLink = null;
-  var uploadStatus = g('upload-status'); if(uploadStatus) { uploadStatus.style.display='none'; uploadStatus.textContent=''; }
-  var uploadBtn = g('btn-upload-drive'); if(uploadBtn) { uploadBtn.style.display='none'; uploadBtn.disabled=false; uploadBtn.innerHTML='☁️ Driveに保存'; }
+
   currentScore = null; currentResult = null;
   g('ai-result').classList.remove('show');
 }
@@ -843,209 +821,6 @@ async function scanBusinessCard(event) {
     }
   };
   reader.readAsDataURL(file);
-}
-
-// --- Voice Recording ---
-var mediaRecorder = null;
-var recordedChunks = [];
-var recordedBlob = null;
-var isRecording = false;
-
-async function toggleRecording() {
-  var btn = g('btn-record');
-  var status = g('record-status');
-  if (!isRecording) {
-    try {
-      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recordedChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop = function() {
-        recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
-        var url = URL.createObjectURL(recordedBlob);
-        var audio = g('audio-preview');
-        audio.src = url;
-        audio.style.display = 'block';
-        g('btn-upload-drive').style.display = 'inline-flex';
-        stream.getTracks().forEach(function(t){ t.stop(); });
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      btn.innerHTML = '⏹ 録音停止';
-      btn.style.color = 'var(--red)';
-      status.style.display = 'block';
-    } catch(e) { showToast('マイクへのアクセスが許可されていません', 'error'); }
-  } else {
-    mediaRecorder.stop();
-    isRecording = false;
-    btn.innerHTML = '🎤 録音開始';
-    btn.style.color = '';
-    status.style.display = 'none';
-  }
-}
-
-async function transcribeAudio() {
-  if (!recordedBlob) { showToast('録音データがありません', 'error'); return; }
-  if (!cfg['cfg-claude']) { showToast('設定からClaude APIキーを入力してください', 'error'); return; }
-
-  var btn = g('btn-transcribe');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> 文字起こし中...';
-
-  var reader = new FileReader();
-  reader.onload = async function(e) {
-    var base64 = e.target.result.split(',')[1];
-    try {
-      var res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: cfg['cfg-claude'],
-          model: 'claude-sonnet-4-5',
-          max_tokens: 800,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: '以下の音声を文字起こしして、展示会の商談メモとして要約してください。話者の情報・興味ポイント・課題・次のステップなどを簡潔にまとめてください。JSONのみで返してください：{"transcription":"要約されたメモ"}' },
-              { type: 'document', source: { type: 'base64', media_type: 'audio/webm', data: base64 } }
-            ]
-          }]
-        })
-      });
-      var data = await res.json();
-      var text = data.content.map(function(i){ return i.text||''; }).join('');
-      // Claudeは音声を直接処理できないのでテキスト入力を促す
-      showToast('音声ファイルをテキストで入力してください', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '📝 文字起こし';
-    } catch(e) {
-      showToast('文字起こしに失敗しました', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '📝 文字起こし';
-    }
-  };
-  reader.readAsDataURL(recordedBlob);
-}
-
-// --- Google Drive Integration ---
-var gdriveAccessToken = null;
-var currentDriveLink = null;
-
-function connectGoogleDrive() {
-  var clientId = cfg['cfg-gdrive-client-id'];
-  var el = g('cfg-gdrive-client-id');
-  if (!clientId && el) clientId = el.value;
-  if (!clientId) { showToast('クライアントIDを入力して設定を保存してください', 'error'); return; }
-
-  localStorage.setItem('gdrive_pre_auth_view', 'setup');
-  var scope = 'https://www.googleapis.com/auth/drive.file';
-  var redirectUri = window.location.origin + window.location.pathname;
-  var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-    '?client_id=' + encodeURIComponent(clientId) +
-    '&redirect_uri=' + encodeURIComponent(redirectUri) +
-    '&response_type=token' +
-    '&scope=' + encodeURIComponent(scope);
-  window.location.href = authUrl;
-}
-
-function checkGdriveCallback() {
-  var hash = window.location.hash;
-  if (hash && hash.indexOf('access_token') >= 0) {
-    // #iss=...&access_token=... の形式に対応
-    var hashStr = hash.substring(1);
-    var params = new URLSearchParams(hashStr);
-    var token = params.get('access_token');
-    if (!token) {
-      // 別の区切り方を試す
-      var parts = hashStr.split('&');
-      parts.forEach(function(part) {
-        if (part.indexOf('access_token=') === 0) {
-          token = part.substring('access_token='.length);
-        }
-      });
-    }
-    if (token) {
-      gdriveAccessToken = token;
-      localStorage.setItem('gdrive_token', gdriveAccessToken);
-      history.replaceState(null, '', window.location.pathname);
-      var st = g('gdrive-status');
-      if (st) { st.textContent = '✓ Google Driveに接続済み'; st.style.color = 'var(--high)'; }
-      showToast('Google Driveに接続しました！', 'success');
-      switchView('setup');
-    }
-  }
-}
-
-async function uploadToDrive() {
-  if (!recordedBlob) { showToast('録音データがありません', 'error'); return; }
-  if (!gdriveAccessToken) { gdriveAccessToken = localStorage.getItem('gdrive_token'); }
-  if (!gdriveAccessToken) { showToast('先に設定からGoogle Driveに接続してください', 'error'); switchView('setup'); return; }
-
-  var btn = g('btn-upload-drive');
-  var status = g('upload-status');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> アップロード中...';
-  status.style.display = 'block';
-  status.textContent = 'Google Driveにアップロード中...';
-
-  try {
-    var name = getVal('inp-name') || 'unknown';
-    var now = new Date();
-    var dateStr = (now.getMonth()+1) + '' + now.getDate() + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
-    var fileName = name + '_' + dateStr + '.webm';
-    var folderName = cfg['cfg-gdrive-folder'] || '推し活EXPO録音';
-    var folderId = await getOrCreateFolder(folderName);
-
-    var metadata = { name: fileName, parents: folderId ? [folderId] : [] };
-    var form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', recordedBlob, fileName);
-
-    var res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken },
-      body: form
-    });
-
-    if (res.status === 401) {
-      gdriveAccessToken = null;
-      localStorage.removeItem('gdrive_token');
-      showToast('認証切れです。設定からDriveに再接続してください', 'error');
-      btn.disabled = false; btn.innerHTML = '☁️ Driveに保存';
-      return;
-    }
-
-    var data = await res.json();
-    if (data.id) {
-      currentDriveLink = data.webViewLink;
-      status.textContent = '✓ 保存完了：' + fileName;
-      status.style.color = 'var(--high)';
-      showToast('Google Driveに保存しました！', 'success');
-      btn.innerHTML = '✓ 保存済み';
-    }
-  } catch(e) {
-    status.textContent = 'アップロードに失敗しました';
-    status.style.color = 'var(--red)';
-    showToast('アップロードに失敗しました', 'error');
-    btn.disabled = false; btn.innerHTML = '☁️ Driveに保存';
-  }
-}
-
-async function getOrCreateFolder(folderName) {
-  try {
-    var searchRes = await fetch("https://www.googleapis.com/drive/v3/files?q=name='" + folderName + "'+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id)", {
-      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken }
-    });
-    var searchData = await searchRes.json();
-    if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
-    var createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + gdriveAccessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' })
-    });
-    var createData = await createRes.json();
-    return createData.id;
-  } catch(e) { return null; }
 }
 
 function showToast(msg, type) {
